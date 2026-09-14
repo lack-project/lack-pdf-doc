@@ -30,17 +30,6 @@ final class ImageSource
         return self::dataUrl('data:' . $mimeType . ';base64,' . base64_encode($bytes));
     }
 
-    public static function file(string $filename, string $mimeType): self
-    {
-        return self::resolver(static function () use ($filename): string {
-            $bytes = @file_get_contents($filename);
-            if ($bytes === false) {
-                throw new RuntimeException('Unable to read image file: ' . $filename);
-            }
-            return $bytes;
-        }, $mimeType);
-    }
-
     public static function resolver(callable $resolver, string $mimeType): self
     {
         if (!str_starts_with($mimeType, 'image/')) {
