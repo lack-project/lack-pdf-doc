@@ -1,0 +1,19 @@
+---
+extends: file://letter-defaults.template.html
+---
+<header class="letterhead">
+  <div class="letterhead-logo">{{ image:meta.company.logo }}</div>
+  <div class="letterhead-company">
+    <strong>{{ meta.company.name }}</strong><br>
+    {{ meta.company.address.street }}<br>
+    {{ meta.company.address.postalCode }} {{ meta.company.address.city }}
+  </div>
+</header>
+
+<div class="letterhead-document">
+  {{ template }}
+</div>
+
+<footer class="letterhead-footer">
+  {{ meta.company.contact.email }} · {{ meta.company.contact.phone }}
+</footer>
