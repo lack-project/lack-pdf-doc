@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Lack\PdfDoc\Core;
 
+use Com\Tecnick\Pdf\Font\Stack;
 use Com\Tecnick\Pdf\Tcpdf;
+use RuntimeException;
 
 final class PdfRenderer
 {
@@ -22,8 +24,28 @@ final class PdfRenderer
         ]);
         $pdf->addPage();
 
+        $fontPackageRoot = dirname((new \ReflectionClass(Stack::class))->getFileName() ?: '', 2);
         foreach ($document->getFonts() as $font) {
-            $metric = $pdf->font->insert($pdf->pon, $font->family(), $font->style(), 11);
+            $definition = $fontPackageRoot
+                . '/target/fonts/core/'
+                . strtolower($font->family() . $font->style())
+                . '.json';
+            if (!is_file($definition)) {
+                throw new RuntimeException(
+                    'PDF core font definitions are missing. Run composer install/update to generate tc-lib-pdf fonts: '
+                    . $definition,
+                );
+            }
+
+            $metric = $pdf->font->insert(
+                $pdf->pon,
+                $font->family(),
+                $font->style(),
+                11,
+                null,
+                null,
+                $definition,
+            );
             $pdf->page->addContent($metric['out']);
         }
 
