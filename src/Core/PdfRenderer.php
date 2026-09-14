@@ -18,23 +18,31 @@ final class PdfRenderer
     public function render(AbstractDocument $document): string
     {
         $html = ($this->parser ?? new DocumentParser())->parse($document);
+        $fontPackageRoot = dirname((new \ReflectionClass(Stack::class))->getFileName() ?: '', 2);
+        $fontDirectory = $fontPackageRoot . '/target/fonts';
+        if (!is_dir($fontDirectory)) {
+            throw new RuntimeException(
+                'PDF font definitions are missing. Run composer install/update to generate tc-lib-pdf fonts: '
+                . $fontDirectory,
+            );
+        }
+        if (!defined('K_PATH_FONTS')) {
+            define('K_PATH_FONTS', $fontDirectory);
+        }
+
         $pdf = new Tcpdf(fileOptions: [
             'allowedHosts' => [],
             'markupAllowedPaths' => [],
         ]);
         $pdf->addPage();
 
-        $fontPackageRoot = dirname((new \ReflectionClass(Stack::class))->getFileName() ?: '', 2);
         foreach ($document->getFonts() as $font) {
-            $definition = $fontPackageRoot
-                . '/target/fonts/core/'
+            $definition = $fontDirectory
+                . '/core/'
                 . strtolower($font->family() . $font->style())
                 . '.json';
             if (!is_file($definition)) {
-                throw new RuntimeException(
-                    'PDF core font definitions are missing. Run composer install/update to generate tc-lib-pdf fonts: '
-                    . $definition,
-                );
+                throw new RuntimeException('PDF core font definition is missing: ' . $definition);
             }
 
             $metric = $pdf->font->insert(
