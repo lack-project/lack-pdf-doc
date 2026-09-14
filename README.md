@@ -1,23 +1,11 @@
 # lack-pdf-doc
 
-PHP 8.5 library for generating styled PDF documents from Markdown without Pandoc or LaTeX. Markdown is converted with `phore/markdown`; PDF output is rendered by `tecnickcom/tc-lib-pdf`.
+Convenience- und Abstraktionsschicht für `tecnickcom/tc-lib-pdf`. Gemeinsame PDF-Erzeugung liegt unter `Lack\PdfDoc\Core`; konkrete Dokumenttypen kapseln ihre eigene API, Styles und Templates.
 
 ## Letterhead
 
-```php
-<?php
+`Lack\PdfDoc\Letterhead\LetterheadDocument` erzeugt einen klassischen Brief mit Logo, Absender-/Empfängerfenster, optionalem Kopfbereich, Markdown- oder HTML-Inhalt und bis zu vier Footer-Spalten. Das Styling wird über `LetterheadStyle` konfiguriert und vor dem Rendering in von tc-lib-pdf verarbeitbares CSS eingesetzt.
 
-use Lack\PdfDoc\Document;
-use Lack\PdfDoc\PdfRenderer;
+Siehe [`examples/letterhead/01-basic.php`](examples/letterhead/01-basic.php).
 
-$document = (new Document('letterhead'))
-    ->with('logo', __DIR__ . '/logo.svg')
-    ->with('sender', 'Example GmbH · Example Street 1 · 45130 Essen')
-    ->with('address', "Jane Doe\nCustomer Street 2\n45131 Essen")
-    ->markdown("# Your report\n\nThe rest of the document is **Markdown**.");
-
-$pdf = (new PdfRenderer())->render($document);
-file_put_contents('document.pdf', $pdf);
-```
-
-Templates live below `templates/` and consist of `document.html` and `document.css`. The `default` template is neutral. The `letterhead` template reserves the first-page header area, places a logo at the upper right, and provides `sender` and `address` placeholders before the Markdown body.
+Weitere Dokumenttypen können mit eigenem Namespace und eigenem Template-Verzeichnis ergänzt werden, ohne die Letterhead-API oder den Core zu erweitern.

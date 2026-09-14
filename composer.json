@@ -1,32 +1,16 @@
 {
-  "name": "lack-project/lack-pdf-doc",
+  "name": "lack/pdf-doc",
   "type": "library",
-  "description": "Generate styled PDF documents from Markdown with reusable HTML/CSS templates.",
+  "description": "Document-oriented convenience layer for tc-lib-pdf with reusable HTML/CSS templates.",
   "license": "MIT",
-  "authors": [
-    {
-      "name": "Matthias Leuffen",
-      "email": "leuffen@continue.de"
-    }
-  ],
-  "autoload": {
-    "psr-4": {
-      "Lack\\PdfDoc\\": "src/"
-    }
-  },
+  "authors": [{"name": "Matthias Leuffen", "email": "leuffen@continue.de"}],
+  "autoload": {"psr-4": {"Lack\\PdfDoc\\": "src/"}},
   "require": {
     "php": ">=8.5",
     "phore/markdown": "^1.0",
     "tecnickcom/tc-lib-pdf": "^8.0"
   },
-  "require-dev": {
-    "phpunit/phpunit": "^13.2.2"
-  },
-  "config": {
-    "preferred-install": "source",
-    "allow-plugins": {
-      "php-http/discovery": false
-    }
-  },
+  "require-dev": {"phpunit/phpunit": "^13.2"},
+  "config": {"preferred-install": "dist", "sort-packages": true},
   "minimum-stability": "stable"
 }
