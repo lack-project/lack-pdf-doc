@@ -13,7 +13,11 @@ final class PdfRenderer
     public function render(Document $document): string
     {
         $html = ($this->parser ?? new DocumentParser())->parse($document);
-        $pdf = new Tcpdf();
+        $pdf = new Tcpdf(fileOptions: [
+            'allowedHosts' => [],
+            'allowedPaths' => [],
+            'markupAllowedPaths' => [],
+        ]);
         $pdf->addPage();
         $font = $pdf->font->insert($pdf->pon, 'helvetica', '', 11);
         $pdf->page->addContent($font['out']);
