@@ -18,7 +18,6 @@ final class PdfRenderer
         $html = ($this->parser ?? new DocumentParser())->parse($document);
         $pdf = new Tcpdf(fileOptions: [
             'allowedHosts' => [],
-            'allowedPaths' => [],
             'markupAllowedPaths' => [],
         ]);
         $pdf->addPage();
