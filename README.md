@@ -34,6 +34,39 @@ $pdf = $letter->toPdf();
 
 Siehe [`examples/letter/01-basic.php`](examples/letter/01-basic.php).
 
+## Datengetriebene Brief-Templates
+
+`LetterTemplate` legt einen wiederverwendbaren Dokumentaufbau fest, ohne konkrete Bewerber- oder Vorgangsdaten einzubauen. Die Definition kann wie `LetterConfig` aus bereits dekodiertem JSON/YAML stammen. Unterstützt werden Tabellen aus strukturierten Daten, ein optionales Bild pro Tabellenblock, benannte Markdown-Freitext-Slots und feste Textblöcke mit `{{daten.pfad}}`-Platzhaltern.
+
+```php
+$template = \Lack\PdfDoc\Template\LetterTemplate::fromArray([
+    'sections' => [
+        [
+            'type' => 'table',
+            'title' => 'Bewerberprofil',
+            'image' => 'candidate.photo',
+            'rows' => [
+                ['label' => 'Nachname', 'value' => 'candidate.lastName'],
+                ['label' => 'Vorname', 'value' => 'candidate.firstName'],
+                ['label' => 'Wohnort', 'value' => 'candidate.city'],
+            ],
+        ],
+        ['type' => 'markdown', 'title' => 'Profil', 'slot' => 'profile'],
+        ['type' => 'fixed', 'text' => 'Referenz: {{application.reference}}'],
+    ],
+]);
+
+$dossier = $template->document($config)
+    ->data($structuredData)
+    ->text('profile', $profileMarkdown);
+
+$pdf = $dossier->toPdf();
+```
+
+Datenpfade verwenden Punktnotation wie `candidate.lastName`. Ein Bildwert enthält ausschließlich einen bereits registrierten Bild-Alias; die eigentlichen Bildbytes werden separat mit `image()`, `imageBytes()` oder `imageFromCallback()` registriert. Dadurch kann ein externer Prozess das Template und die Daten vollständig maschinell erzeugen, ohne HTML schreiben zu müssen.
+
+Siehe [`examples/templates/01-candidate-dossier.php`](examples/templates/01-candidate-dossier.php).
+
 ## Ausfüllbare Formulare und Signaturfelder
 
 Jeder Dokumenttyp kann interaktive PDF-Formulare erhalten. `form()` liefert eine kleine Convenience-API für Textfelder, Checkboxen, Auswahlfelder und digitale Signaturfelder. Die erzeugten AcroForm-Werte können in kompatiblen PDF-Viewern ausgefüllt, gespeichert und mit der gespeicherten PDF-Datei zurückgesendet werden.
@@ -66,6 +99,8 @@ Siehe [`examples/letter/02-images.php`](examples/letter/02-images.php).
 - `Lack\PdfDoc\Letter\LetterDocument` – konkreter Brief.
 - `Lack\PdfDoc\Letter\LetterLayout` – Maße und Typografie des Briefs.
 - `Lack\PdfDoc\Letter\LetterFooter` – Firmen-, Bank-, Kontakt- und Rechtsangaben.
+- `Lack\PdfDoc\Template\LetterTemplate` – deklarativer Aufbau für datengetriebene Briefe/Dossiers.
+- `Lack\PdfDoc\Template\LetterTemplateDocument` – konkrete, mit Daten und Freitext gefüllte Template-Instanz.
 - `Lack\PdfDoc\Form\InteractiveForm` – ausfüllbare Formular- und digitale Signaturfelder.
 - `Lack\PdfDoc\Resource\ImageSource` / `FontSource` – explizit registrierte Ressourcen.
 - `Lack\PdfDoc\Core` – interne Rendering-Infrastruktur.

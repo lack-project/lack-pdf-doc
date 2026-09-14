@@ -11,6 +11,12 @@
 .document h2 { font-size: 14pt; margin: 7mm 0 3mm; }
 .document p { margin: 0 0 4mm; }
 .document img { max-width: 100%; height: auto; }
+.template-section { margin: 0 0 6mm; }
+.template-image { margin: 0 0 4mm; }
+.template-data-table { width: 100%; border-collapse: collapse; }
+.template-data-table th { width: 34%; text-align: left; font-weight: bold; padding: 1.5mm 2mm 1.5mm 0; border-bottom: 0.2mm solid #bbb; }
+.template-data-table td { padding: 1.5mm 0; border-bottom: 0.2mm solid #bbb; }
+.template-fixed-section { margin-top: 8mm; font-size: 9pt; }
 .first-page-footer { position: fixed; left: {{style.pageLeft}}; right: {{style.pageRight}}; bottom: 8mm; font-family: {{style.footerFont}}; font-size: {{style.footerFontSize}}; line-height: 1.25; }
 .first-page-footer table { width: 100%; border-collapse: collapse; }
 .first-page-footer td { width: 25%; vertical-align: top; padding-right: 3mm; }

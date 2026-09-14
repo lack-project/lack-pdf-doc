@@ -7,12 +7,12 @@ namespace Lack\PdfDoc\Letter;
 use Lack\PdfDoc\Core\AbstractDocument;
 use Lack\PdfDoc\Resource\FontSource;
 
-final class LetterDocument extends AbstractDocument
+class LetterDocument extends AbstractDocument
 {
     private string $recipientAddress = '';
     private string $referenceBlock = '';
 
-    public function __construct(private readonly LetterConfig $config = new LetterConfig())
+    public function __construct(protected readonly LetterConfig $config = new LetterConfig())
     {
         $this->font('body', FontSource::builtIn('helvetica'));
     }
