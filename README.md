@@ -81,6 +81,12 @@ Das Signaturfeld ist ein echtes PDF-Signatur-Widget (`/FT /Sig`) für eine digit
 
 Siehe [`examples/forms/01-fill-and-sign.php`](examples/forms/01-fill-and-sign.php).
 
+## Demo- und Referenz-PDFs
+
+`test/DemoPdfTest.php` erzeugt bei jedem PHPUnit-Lauf feste Demo-Dokumente unter `demo/generated/`. Die GitHub-Action lädt diese Dateien zusätzlich als Artefakt `demo-pdfs` hoch, sodass die Ausgabe eines konkreten Commits direkt angesehen werden kann.
+
+Unter `demo/reference/` liegen bewusst geprüfte Referenz-PDFs als Golden Master. Diese Dateien werden nicht automatisch überschrieben: Nach einer absichtlichen Rendering-Änderung werden die neu erzeugten PDFs visuell geprüft und erst dann als neue Referenz eingecheckt. Dadurch bleibt die visuelle Entwicklung zusätzlich über die Git-Historie nachvollziehbar.
+
 ## Ressourcen-Sicherheit
 
 tc-lib-pdf erhält weder Internetzugriff noch direkten Zugriff auf Dokumentressourcen im Dateisystem. Dateireferenzen werden von der vertrauenswürdigen Config-/Template-Ladeschicht gelesen und in interne Ressourcen umgewandelt. Im eigentlichen Renderer bleiben Bilder und Fonts alias- beziehungsweise datenbasiert.
