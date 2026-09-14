@@ -11,8 +11,10 @@ final class LetterheadStyle
         public string $logoHeight = '22mm',
         public string $pageLeft = '20mm',
         public string $pageRight = '20mm',
+        public string $bodyFont = 'font:body',
         public string $bodyFontSize = '11pt',
         public string $bodyLineHeight = '1.45',
+        public string $footerFont = 'font:body',
         public string $footerFontSize = '8pt',
     ) {}
 
