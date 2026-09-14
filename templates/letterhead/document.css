@@ -1,5 +1,5 @@
 @page { margin: 18mm {{style.pageRight}} 22mm {{style.pageLeft}}; }
-.page { font-size: {{style.bodyFontSize}}; line-height: {{style.bodyLineHeight}}; }
+.page { font-family: {{style.bodyFont}}; font-size: {{style.bodyFontSize}}; line-height: {{style.bodyLineHeight}}; }
 .logo { text-align: right; height: 26mm; }
 .logo img { max-width: {{style.logoWidth}}; max-height: {{style.logoHeight}}; }
 .header-extra { text-align: right; min-height: 10mm; font-size: 9pt; }
@@ -11,6 +11,6 @@
 .document h2 { font-size: 14pt; margin: 7mm 0 3mm; }
 .document p { margin: 0 0 4mm; }
 .document img { max-width: 100%; height: auto; }
-.first-page-footer { position: fixed; left: {{style.pageLeft}}; right: {{style.pageRight}}; bottom: 8mm; font-size: {{style.footerFontSize}}; line-height: 1.25; }
+.first-page-footer { position: fixed; left: {{style.pageLeft}}; right: {{style.pageRight}}; bottom: 8mm; font-family: {{style.footerFont}}; font-size: {{style.footerFontSize}}; line-height: 1.25; }
 .first-page-footer table { width: 100%; border-collapse: collapse; }
 .first-page-footer td { width: 25%; vertical-align: top; padding-right: 3mm; }
