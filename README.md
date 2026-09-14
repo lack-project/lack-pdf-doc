@@ -17,7 +17,7 @@ Siehe [`examples/01-quickstart.php`](examples/01-quickstart.php).
 
 ## Brief mit wiederverwendbarer Konfiguration
 
-`LetterConfig` beschreibt das wiederverwendbare Briefpapier. Der typische Einstieg lädt eine JSON- oder YAML-Datei mit `LetterConfig::fromFile()`; `fromArray()` bleibt für bereits vorliegende Arrays verfügbar.
+`LetterConfig` beschreibt aktuell das wiederverwendbare Briefpapier. Der typische Einstieg lädt eine JSON- oder YAML-Datei mit `LetterConfig::fromFile()`; `fromArray()` bleibt für bereits vorliegende Arrays verfügbar.
 
 ```php
 $config = \Lack\PdfDoc\Letter\LetterConfig::fromFile(__DIR__ . '/letter.yaml');
@@ -30,30 +30,41 @@ $letter = (new \Lack\PdfDoc\Letter\LetterDocument($config))
 $pdf = $letter->toPdf();
 ```
 
-Mit `phore/filesystem` steht für YAML-Front-Matter die bestehende `PhoreFile::get_front_matter()`-Implementierung zur Verfügung. JSON/YAML-Konfiguration und Front-Matter verwenden damit dieselbe Phore-Dateischicht.
+Mit `phore/filesystem` steht für YAML-Front-Matter die bestehende `PhoreFile::get_front_matter()`-Implementierung zur Verfügung.
 
-Ressourcen können direkt in der Config angegeben werden. `file://assets/company-logo.png` ist relativ zur geladenen YAML-/JSON-Datei. `file:///opt/company/company-logo.png` ist ein absoluter Pfad. Eine `data:image/...`-URL kann direkt eingebettet werden. `fromArray()` lehnt `file://` ab, weil dort bewusst kein Basisverzeichnis bekannt ist. Die Datei wird beim Config-Laden gelesen; tc-lib-pdf selbst erhält den Pfad nicht.
+Ressourcen können direkt in der Config angegeben werden. `file://assets/company-logo.png` ist relativ zur geladenen YAML-/JSON-Datei. `file:///opt/company/company-logo.png` ist ein absoluter Pfad. Eine `data:image/...`-URL kann direkt eingebettet werden. Die Datei wird beim Config-Laden gelesen; tc-lib-pdf selbst erhält den Pfad nicht.
 
-Fonts werden in derselben Config unter Aliasnamen festgelegt, zum Beispiel `body: builtin://helvetica`. Das Layout referenziert anschließend nur den Alias `body`. Eigene TTF/OTF-Dateien sind im isolierten Renderer derzeit bewusst nicht freigegeben, weil der aktuelle tc-lib-pdf-font-Importer echte Datei-I/O und erzeugte Font-Dateien benötigt.
+Fonts werden in derselben Config unter Aliasnamen festgelegt, zum Beispiel `body: builtin://helvetica`.
 
-Siehe [`examples/letter/01-basic.php`](examples/letter/01-basic.php) und die kopierbare [`examples/letter/letter.yaml`](examples/letter/letter.yaml).
+Siehe [`examples/letter/01-basic.php`](examples/letter/01-basic.php) und [`examples/letter/letter.yaml`](examples/letter/letter.yaml).
 
-## Entwurf: erbbares Front-Matter-/HTML-Template
+## Entwurf: generische TemplateDocument-Pipeline
 
-Zusätzlich liegt ein API-Entwurf vor, bei dem die Template-Datei selbst YAML-Front-Matter besitzt. `extends` kann auf eine bestehende Letter-Config zeigen, `config` überschreibt Werte dieser Basis und programmatische `configOverrides` gewinnen zuletzt. Der HTML-Body des Templates enthält Metadaten-, Markdown-, Main-Content- und Renderer-Platzhalter.
+Das Zielbild verwendet `TemplateDocument` für alle gestalteten Dokumenttypen. Ein Brief ist dann kein eigener PHP-Dokumenttyp mehr, sondern eine Template-Vererbungskette.
 
-```yaml
----
-extends: file://../letter/letter.yaml
-config:
-  layout:
-    pageLeft: 22mm
----
+Die Beispiele zeigen drei Ebenen:
+
+1. [`letter-defaults.template.html`](examples/templates/letter-defaults.template.html) enthält Standardlogo, Firmenadresse, Fonts und Grundlayout.
+2. [`letterhead.template.html`](examples/templates/letterhead.template.html) erbt diese Defaults und baut daraus Briefkopf und Footer.
+3. [`letter.template.html`](examples/templates/letter.template.html) erbt den Briefkopf und ergänzt Empfänger, Betreff, Grußformel, `{{ content }}` und Abschluss.
+
+Die konkrete [`letter.md`](examples/templates/letter.md) enthält nur Front-Matter-Dokumentdaten und den Markdown-Hauptinhalt. Metadaten aus dem Dokument überschreiben geerbte Template-Defaults. [`letter-custom-logo.md`](examples/templates/letter-custom-logo.md) zeigt das gezielt für `company.logo`: derselbe Briefkopf wird verwendet, nur das Logo wird im Dokument-Front-Matter ersetzt.
+
+Template-Vererbung verwendet `{{ template }}` für den Body des erbenden Child-Templates. `{{ content }}` ist ausschließlich der gerenderte Markdown-Hauptinhalt des konkreten Dokuments. Bilder können über `{{ image:meta.company.logo }}` aus Metadaten eingebunden werden.
+
+```php
+$document = \Lack\PdfDoc\Template\TemplateDocument::fromTemplateFile(
+    __DIR__ . '/letter.template.html',
+    safe: true,
+)
+    ->fromMarkdownFile(__DIR__ . '/letter.md');
+
+$pdf = $document->toPdf();
 ```
 
-Der geplante Loader `TemplateDocument::fromTemplateFile()` ist standardmäßig `safe: false`: relative Datei-Referenzen aus dem Template werden dann nicht automatisch geladen. Mit `safe: true` erklärt die Anwendung das Template-Verzeichnis ausdrücklich als vertrauenswürdig und erlaubt relative `file://`-Referenzen. Konkrete Dokumentdaten werden direkt mit `phore_file(...)->get_front_matter()` in `header` und Markdown-`content` getrennt.
+`fromMarkdownFile()` soll intern `phore_file(...)->get_front_matter()` verwenden. `safe: false` bleibt Standard und verhindert automatisches relatives Nachladen aus Template-Front-Matter; `safe: true` erlaubt relative `file://`-Referenzen innerhalb einer ausdrücklich vertrauenswürdigen Template-Kette.
 
-Siehe [`docs/front-matter-template-design.md`](docs/front-matter-template-design.md), [`examples/templates/candidate-dossier.template.html`](examples/templates/candidate-dossier.template.html) und [`examples/templates/02-front-matter-template.php`](examples/templates/02-front-matter-template.php). Dieser Teil ist ausdrücklich noch Entwurf und keine produktive API.
+Siehe [`docs/front-matter-template-design.md`](docs/front-matter-template-design.md) und [`examples/templates/03-letter-inheritance.php`](examples/templates/03-letter-inheritance.php). Dieser Bereich ist noch Entwurf und noch keine produktive API. Die bestehenden Letter-Klassen bleiben bis zur Implementierung dieser Pipeline bestehen.
 
 ## Ausfüllbare Formulare und Signaturfelder
 
@@ -72,23 +83,17 @@ Siehe [`examples/forms/01-fill-and-sign.php`](examples/forms/01-fill-and-sign.ph
 
 ## Ressourcen-Sicherheit
 
-tc-lib-pdf erhält weder Internetzugriff noch direkten Zugriff auf Dokumentressourcen im Dateisystem. Dateireferenzen in `LetterConfig::fromFile()` werden ausschließlich von der Config-Schicht gelesen und sofort in interne Ressourcen umgewandelt. Im eigentlichen Dokument und Renderer bleiben Bilder und Fonts aliasbasiert.
+tc-lib-pdf erhält weder Internetzugriff noch direkten Zugriff auf Dokumentressourcen im Dateisystem. Dateireferenzen werden von der vertrauenswürdigen Config-/Template-Ladeschicht gelesen und in interne Ressourcen umgewandelt. Im eigentlichen Renderer bleiben Bilder und Fonts alias- beziehungsweise datenbasiert.
 
-Bilder können als Bytes, Data-URL oder über einen anwendungseigenen Callback registriert werden. Im Markdown werden Bilder mit `image:<alias>` referenziert, zum Beispiel `![Chart](image:chart)`.
+Bilder können als Bytes, Data-URL oder über einen anwendungseigenen Callback registriert werden. Im Markdown werden Bilder mit `image:<alias>` referenziert.
 
 Fonts werden über `FontSource::builtIn()` beziehungsweise Config-Werte wie `builtin://helvetica` auf isoliert nutzbare PDF-Core-Fonts abgebildet.
-
-Siehe [`examples/letter/02-images.php`](examples/letter/02-images.php).
 
 ## Struktur
 
 - `Lack\PdfDoc\SimpleDocument` – neutrales Markdown-/HTML-Dokument.
-- `Lack\PdfDoc\Letter\LetterConfig` – wiederverwendbare Briefpapier-Konfiguration mit `fromFile()` und `fromArray()`.
-- `Lack\PdfDoc\Letter\LetterDocument` – konkreter Brief.
-- `Lack\PdfDoc\Letter\LetterLayout` – Maße und Typografie des Briefs.
-- `Lack\PdfDoc\Letter\LetterFooter` – Firmen-, Bank-, Kontakt- und Rechtsangaben.
-- `Lack\PdfDoc\Template\LetterTemplate` – deklarativer Aufbau für datengetriebene Briefe/Dossiers.
-- `Lack\PdfDoc\Template\LetterTemplateDocument` – konkrete, mit Daten und Freitext gefüllte Template-Instanz.
+- `Lack\PdfDoc\Letter\LetterConfig` / `LetterDocument` – aktuelle produktive Letter-API während der Migration.
+- `Lack\PdfDoc\Template\TemplateDocument` – Zielentwurf für die generische Template-Pipeline.
 - `Lack\PdfDoc\Form\InteractiveForm` – ausfüllbare Formular- und digitale Signaturfelder.
 - `Lack\PdfDoc\Resource\ImageSource` / `FontSource` – explizit registrierte Ressourcen.
 - `Lack\PdfDoc\Core` – interne Rendering-Infrastruktur.
