@@ -1,0 +1,8 @@
+.letterhead { position: relative; height: 38mm; }
+.sender { font-size: 8pt; color: #555; padding-top: 4mm; }
+.logo { position: absolute; right: 0; top: 0; max-width: 48mm; max-height: 24mm; }
+.address { width: 90mm; min-height: 35mm; margin-top: 8mm; margin-bottom: 10mm; white-space: pre-line; }
+.document { font-size: 11pt; line-height: 1.45; }
+.document h1 { font-size: 20pt; margin-bottom: 8mm; }
+.document h2 { font-size: 15pt; margin-top: 8mm; margin-bottom: 4mm; }
+.document img { max-width: 100%; height: auto; }
