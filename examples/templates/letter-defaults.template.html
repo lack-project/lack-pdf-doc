@@ -1,0 +1,23 @@
+---
+# Firmenweite Standardwerte. Sie können von erbenden Templates oder vom konkreten Dokument überschrieben werden.
+defaults:
+  company:
+    name: Example GmbH
+    logo: file://../letter/assets/company-logo.png
+    address:
+      street: Musterstraße 1
+      postalCode: "45130"
+      city: Essen
+    contact:
+      email: kontakt@example.de
+      phone: "+49 201 123456"
+
+config:
+  fonts:
+    body: builtin://helvetica
+  layout:
+    pageLeft: 20mm
+    pageRight: 20mm
+    bodyFont: body
+---
+{{ template }}
