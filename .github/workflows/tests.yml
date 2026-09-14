@@ -19,3 +19,9 @@ jobs:
         run: composer install --no-interaction --prefer-dist
       - name: Unit tests
         run: vendor/bin/phpunit --configuration phpunit.xml.dist
+      - name: Upload demo PDFs
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-pdfs
+          path: demo/generated/*.pdf
+          if-no-files-found: error
