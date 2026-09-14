@@ -23,6 +23,7 @@ final class DocumentParser
         foreach ($document->styleVariables() as $name => $value) {
             $css = str_replace('{{style.' . $name . '}}', (string) $value, $css);
         }
+        $css = FontRegistry::resolveCssAliases($css, $document->getFonts());
 
         if (preg_match('#url\((?!["\']?data:)#i', $css)) {
             throw new RuntimeException('External or filesystem CSS resources are not allowed.');
