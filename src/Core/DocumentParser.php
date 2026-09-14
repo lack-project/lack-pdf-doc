@@ -26,8 +26,8 @@ final class DocumentParser
         }
         $css = FontRegistry::resolveCssAliases($css, $document->getFonts());
 
-        if (preg_match('#url\((?!["\']?data:)#i', $css)) {
-            throw new RuntimeException('External or filesystem CSS resources are not allowed.');
+        if (preg_match('#url\(#i', $css)) {
+            throw new RuntimeException('CSS url() resources are not allowed; images must use registered aliases in document markup.');
         }
 
         $values = array_replace($document->templateVariables(), [
@@ -37,6 +37,10 @@ final class DocumentParser
 
         $html = preg_replace_callback('/\{\{([a-zA-Z0-9_.-]+)\}\}/', static fn(array $m): string => (string) ($values[$m[1]] ?? ''), $html)
             ?? throw new RuntimeException('Unable to render PDF template.');
+
+        if (preg_match('#<img\b[^>]*\bsrc=["\'](?!image:[a-zA-Z0-9_.-]+["\'])#i', $html)) {
+            throw new RuntimeException('Images in document markup must reference a registered image:<alias>.');
+        }
 
         $images = $document->getImages();
         $html = preg_replace_callback('#(<img\b[^>]*\bsrc=["\'])image:([a-zA-Z0-9_.-]+)(["\'][^>]*>)#i', static function (array $m) use ($images): string {
@@ -48,7 +52,7 @@ final class DocumentParser
         }, $html) ?? throw new RuntimeException('Unable to resolve image aliases.');
 
         if (preg_match('#<img\b[^>]*\bsrc=["\'](?!data:image/)#i', $html)) {
-            throw new RuntimeException('Images must use registered aliases; direct URLs and filesystem paths are forbidden.');
+            throw new RuntimeException('Unable to isolate an image resource before PDF rendering.');
         }
 
         return $html;
