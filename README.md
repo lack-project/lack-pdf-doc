@@ -71,6 +71,14 @@ Datenpfade verwenden Punktnotation wie `candidate.lastName`. Ein Bildwert enthä
 
 Siehe [`examples/templates/01-candidate-dossier.php`](examples/templates/01-candidate-dossier.php).
 
+## Entwurf: Front-Matter + HTML-Template
+
+Für stärker gestaltete Dossiers liegt zusätzlich ein API-Entwurf vor: Eine Markdown-Datei liefert einen YAML-Front-Matter-Header mit strukturierten Metadaten und darunter den normalen Markdown-Hauptinhalt. Ein separates HTML-Template steuert die Anordnung.
+
+Der Entwurf orientiert sich an `phore/phore-filesystem::PhoreFile::get_front_matter()`. Vorgesehen sind escaped Metadaten-Platzhalter wie `{{ meta.candidate.firstName }}`, Markdown-Platzhalter wie `{{ markdown:meta.salutation }}`, `{{ content }}` für den Markdown-Body und explizite Renderer-Callbacks wie `{{ render:candidateTable }}` für Tabellen oder andere komplexe HTML-Blöcke.
+
+Diese API ist noch **nicht implementiert**. Die vorgeschlagenen Namen und der vollständige Ablauf stehen in [`docs/front-matter-template-design.md`](docs/front-matter-template-design.md). Kopierbare Eingaben liegen in [`examples/templates/candidate-dossier.md`](examples/templates/candidate-dossier.md) und [`examples/templates/candidate-dossier.template.html`](examples/templates/candidate-dossier.template.html); [`examples/templates/02-front-matter-template.php`](examples/templates/02-front-matter-template.php) zeigt den geplanten PHP-Ablauf.
+
 ## Ausfüllbare Formulare und Signaturfelder
 
 Jeder Dokumenttyp kann interaktive PDF-Formulare erhalten. `form()` liefert eine Convenience-API für Textfelder, Checkboxen, Auswahlfelder und digitale Signaturfelder. Die erzeugten AcroForm-Werte können in kompatiblen PDF-Viewern ausgefüllt, gespeichert und mit der gespeicherten PDF-Datei zurückgesendet werden.
