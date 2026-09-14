@@ -1,5 +1,6 @@
 <?php
 
+use Lack\PdfDoc\Core\ImageSource;
 use Lack\PdfDoc\Core\PdfRenderer;
 use Lack\PdfDoc\Letterhead\LetterheadDocument;
 use Lack\PdfDoc\Letterhead\LetterheadStyle;
@@ -9,7 +10,8 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 $style = new LetterheadStyle(logoWidth: '42mm');
 
 $letter = (new LetterheadDocument($style))
-    ->logo(__DIR__ . '/logo.png')
+    ->image('logo', ImageSource::file(__DIR__ . '/logo.png', 'image/png'))
+    ->logo('logo')
     ->header('Kundennummer 12345')
     ->sender('Example GmbH · Musterstraße 1 · 45130 Essen')
     ->recipient("Erika Mustermann\nBeispielweg 10\n45130 Essen")
