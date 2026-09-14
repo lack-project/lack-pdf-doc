@@ -7,7 +7,10 @@ use Lack\PdfDoc\Letterhead\LetterheadDocument;
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 $letter = (new LetterheadDocument())
-    ->image('logo', ImageSource::file('/secure/input/logo.png', 'image/png'))
+    ->image('logo', ImageSource::resolver(
+        fn(): string => $cloudStorage->read('branding/logo.png'),
+        'image/png',
+    ))
     ->image('chart', ImageSource::resolver(
         fn(): string => $cloudStorage->read('reports/current-chart.png'),
         'image/png',
