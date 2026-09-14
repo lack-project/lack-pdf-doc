@@ -38,39 +38,6 @@ Fonts werden in derselben Config unter Aliasnamen festgelegt, zum Beispiel `body
 
 Siehe [`examples/letter/01-basic.php`](examples/letter/01-basic.php) und die kopierbare [`examples/letter/letter.yaml`](examples/letter/letter.yaml).
 
-## Datengetriebene Brief-Templates
-
-`LetterTemplate` legt einen wiederverwendbaren Dokumentaufbau fest, ohne konkrete Bewerber- oder Vorgangsdaten einzubauen. Unterstützt werden Tabellen aus strukturierten Daten, ein optionales Bild pro Tabellenblock, benannte Markdown-Freitext-Slots und feste Textblöcke mit `{{daten.pfad}}`-Platzhaltern.
-
-```php
-$template = \Lack\PdfDoc\Template\LetterTemplate::fromArray([
-    'sections' => [
-        [
-            'type' => 'table',
-            'title' => 'Bewerberprofil',
-            'image' => 'candidate.photo',
-            'rows' => [
-                ['label' => 'Nachname', 'value' => 'candidate.lastName'],
-                ['label' => 'Vorname', 'value' => 'candidate.firstName'],
-                ['label' => 'Wohnort', 'value' => 'candidate.city'],
-            ],
-        ],
-        ['type' => 'markdown', 'title' => 'Profil', 'slot' => 'profile'],
-        ['type' => 'fixed', 'text' => 'Referenz: {{application.reference}}'],
-    ],
-]);
-
-$dossier = $template->document($config)
-    ->data($structuredData)
-    ->text('profile', $profileMarkdown);
-
-$pdf = $dossier->toPdf();
-```
-
-Datenpfade verwenden Punktnotation wie `candidate.lastName`. Ein Bildwert enthält ausschließlich einen bereits registrierten Bild-Alias; die eigentlichen Bildbytes werden separat mit `image()`, `imageBytes()` oder `imageFromCallback()` registriert.
-
-Siehe [`examples/templates/01-candidate-dossier.php`](examples/templates/01-candidate-dossier.php).
-
 ## Entwurf: erbbares Front-Matter-/HTML-Template
 
 Zusätzlich liegt ein API-Entwurf vor, bei dem die Template-Datei selbst YAML-Front-Matter besitzt. `extends` kann auf eine bestehende Letter-Config zeigen, `config` überschreibt Werte dieser Basis und programmatische `configOverrides` gewinnen zuletzt. Der HTML-Body des Templates enthält Metadaten-, Markdown-, Main-Content- und Renderer-Platzhalter.
