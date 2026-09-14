@@ -6,16 +6,9 @@ use Lack\PdfDoc\Resource\ImageSource;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-$config = LetterConfig::fromArray([
-    'logo' => 'company-logo',
-    'returnAddress' => 'Example GmbH · Musterstraße 1 · 45130 Essen',
-]);
+$config = LetterConfig::fromFile(__DIR__ . '/letter.yaml');
 
 $letter = (new LetterDocument($config))
-    ->image('company-logo', ImageSource::fromCallback(
-        fn(): string => $cloudStorage->read('branding/logo.png'),
-        'image/png',
-    ))
     ->image('chart', ImageSource::fromCallback(
         fn(): string => $cloudStorage->read('reports/current-chart.png'),
         'image/png',

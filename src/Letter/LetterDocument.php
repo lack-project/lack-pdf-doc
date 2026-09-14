@@ -14,7 +14,15 @@ class LetterDocument extends AbstractDocument
 
     public function __construct(protected readonly LetterConfig $config = new LetterConfig())
     {
-        $this->font('body', FontSource::builtIn('helvetica'));
+        foreach ($this->config->fonts as $alias => $font) {
+            $this->font($alias, $font);
+        }
+        if (!isset($this->config->fonts['body'])) {
+            $this->font('body', FontSource::builtIn('helvetica'));
+        }
+        if ($this->config->logo !== null && $this->config->logoSource !== null) {
+            $this->image($this->config->logo, $this->config->logoSource);
+        }
     }
 
     public function recipientAddress(string $address): self

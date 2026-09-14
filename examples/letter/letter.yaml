@@ -1,0 +1,38 @@
+# Vollständige Briefpapier-Konfiguration.
+# file://assets/logo.png ist relativ zu dieser YAML-Datei.
+# file:///opt/company/logo.png wäre ein absoluter Pfad.
+logo: file://assets/company-logo.png
+
+returnAddress: "Example GmbH · Musterstraße 1 · 45130 Essen"
+
+fonts:
+  body: builtin://helvetica
+  footer: builtin://helvetica
+
+layout:
+  logoWidth: 42mm
+  logoHeight: 20mm
+  pageLeft: 20mm
+  pageRight: 20mm
+  bodyFont: body
+  bodyFontSize: 11pt
+  bodyLineHeight: "1.45"
+  footerFont: footer
+  footerFontSize: 8pt
+
+footer:
+  company:
+    - Example GmbH
+    - Musterstraße 1
+    - 45130 Essen
+  bank:
+    IBAN: DE00 0000 0000 0000 0000 00
+    BIC: EXAMPLE1
+  contact:
+    E-Mail: kontakt@example.de
+    Telefon: "+49 201 123456"
+  legal:
+    Geschäftsführung: Max Mustermann
+
+variables:
+  companyName: Example GmbH

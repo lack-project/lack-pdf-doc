@@ -17,10 +17,10 @@ Siehe [`examples/01-quickstart.php`](examples/01-quickstart.php).
 
 ## Brief mit wiederverwendbarer Konfiguration
 
-`LetterConfig` beschreibt das wiederverwendbare Briefpapier: Logo-Alias, Rücksendeadresse, Layout, Footer und eigene Template-Variablen. `LetterDocument` enthält nur die Daten des konkreten Briefes wie Empfänger, Referenzblock, Dokumentvariablen und Markdown/HTML.
+`LetterConfig` beschreibt das wiederverwendbare Briefpapier. Der typische Einstieg lädt eine JSON- oder YAML-Datei mit `LetterConfig::fromFile()`; `fromArray()` bleibt für bereits vorliegende Arrays verfügbar.
 
 ```php
-$config = \Lack\PdfDoc\Letter\LetterConfig::fromArray($configData);
+$config = \Lack\PdfDoc\Letter\LetterConfig::fromFile(__DIR__ . '/letter.yaml');
 
 $letter = (new \Lack\PdfDoc\Letter\LetterDocument($config))
     ->recipientAddress("Erika Mustermann\nBeispielweg 10\n45130 Essen")
@@ -30,13 +30,17 @@ $letter = (new \Lack\PdfDoc\Letter\LetterDocument($config))
 $pdf = $letter->toPdf();
 ```
 
-`fromArray()` ist absichtlich das einzige Konfigurations-Eingabeformat. JSON oder YAML werden von der Anwendung dekodiert und anschließend als Array übergeben. Dadurch bleibt die Library unabhängig von einem bestimmten Config-Parser.
+JSON wird immer unterstützt. YAML/YML wird nur unterstützt, wenn die optionale PHP-YAML-Extension installiert ist; andernfalls wirft `fromFile()` für YAML eine klare Exception und JSON bleibt vollständig nutzbar.
 
-Siehe [`examples/letter/01-basic.php`](examples/letter/01-basic.php).
+Ressourcen können direkt in der Config angegeben werden. `file://assets/company-logo.png` ist relativ zur geladenen YAML-/JSON-Datei. `file:///opt/company/company-logo.png` ist ein absoluter Pfad. Eine `data:image/...`-URL kann direkt eingebettet werden. `fromArray()` lehnt `file://` ab, weil dort bewusst kein Basisverzeichnis bekannt ist. Die Datei wird beim Config-Laden gelesen; tc-lib-pdf selbst erhält den Pfad nicht.
+
+Fonts werden in derselben Config unter Aliasnamen festgelegt, zum Beispiel `body: builtin://helvetica`. Das Layout referenziert anschließend nur den Alias `body`. Eigene TTF/OTF-Dateien sind im isolierten Renderer derzeit bewusst nicht freigegeben, weil der aktuelle tc-lib-pdf-font-Importer echte Datei-I/O und erzeugte Font-Dateien benötigt.
+
+Siehe [`examples/letter/01-basic.php`](examples/letter/01-basic.php) und die kopierbare [`examples/letter/letter.yaml`](examples/letter/letter.yaml).
 
 ## Datengetriebene Brief-Templates
 
-`LetterTemplate` legt einen wiederverwendbaren Dokumentaufbau fest, ohne konkrete Bewerber- oder Vorgangsdaten einzubauen. Die Definition kann wie `LetterConfig` aus bereits dekodiertem JSON/YAML stammen. Unterstützt werden Tabellen aus strukturierten Daten, ein optionales Bild pro Tabellenblock, benannte Markdown-Freitext-Slots und feste Textblöcke mit `{{daten.pfad}}`-Platzhaltern.
+`LetterTemplate` legt einen wiederverwendbaren Dokumentaufbau fest, ohne konkrete Bewerber- oder Vorgangsdaten einzubauen. Unterstützt werden Tabellen aus strukturierten Daten, ein optionales Bild pro Tabellenblock, benannte Markdown-Freitext-Slots und feste Textblöcke mit `{{daten.pfad}}`-Platzhaltern.
 
 ```php
 $template = \Lack\PdfDoc\Template\LetterTemplate::fromArray([
@@ -63,13 +67,13 @@ $dossier = $template->document($config)
 $pdf = $dossier->toPdf();
 ```
 
-Datenpfade verwenden Punktnotation wie `candidate.lastName`. Ein Bildwert enthält ausschließlich einen bereits registrierten Bild-Alias; die eigentlichen Bildbytes werden separat mit `image()`, `imageBytes()` oder `imageFromCallback()` registriert. Dadurch kann ein externer Prozess das Template und die Daten vollständig maschinell erzeugen, ohne HTML schreiben zu müssen.
+Datenpfade verwenden Punktnotation wie `candidate.lastName`. Ein Bildwert enthält ausschließlich einen bereits registrierten Bild-Alias; die eigentlichen Bildbytes werden separat mit `image()`, `imageBytes()` oder `imageFromCallback()` registriert.
 
 Siehe [`examples/templates/01-candidate-dossier.php`](examples/templates/01-candidate-dossier.php).
 
 ## Ausfüllbare Formulare und Signaturfelder
 
-Jeder Dokumenttyp kann interaktive PDF-Formulare erhalten. `form()` liefert eine kleine Convenience-API für Textfelder, Checkboxen, Auswahlfelder und digitale Signaturfelder. Die erzeugten AcroForm-Werte können in kompatiblen PDF-Viewern ausgefüllt, gespeichert und mit der gespeicherten PDF-Datei zurückgesendet werden.
+Jeder Dokumenttyp kann interaktive PDF-Formulare erhalten. `form()` liefert eine Convenience-API für Textfelder, Checkboxen, Auswahlfelder und digitale Signaturfelder. Die erzeugten AcroForm-Werte können in kompatiblen PDF-Viewern ausgefüllt, gespeichert und mit der gespeicherten PDF-Datei zurückgesendet werden.
 
 ```php
 $document->form()
@@ -78,24 +82,24 @@ $document->form()
     ->signature('signature', x: 25, y: 140, width: 80, height: 25, label: 'Digital unterschreiben');
 ```
 
-Das Signaturfeld ist ein echtes PDF-Signatur-Widget (`/FT /Sig`) für eine digitale, typischerweise zertifikatsbasierte PDF-Signatur. Freihändiges Zeichnen mit Maus oder Finger ist dagegen eine Funktion des jeweiligen PDF-Viewers (z. B. Fill & Sign/Ink) und kann nicht viewerunabhängig als identisches Formularfeld erzwungen werden.
+Das Signaturfeld ist ein echtes PDF-Signatur-Widget (`/FT /Sig`) für eine digitale, typischerweise zertifikatsbasierte PDF-Signatur. Freihändiges Zeichnen mit Maus oder Finger ist dagegen eine Funktion des jeweiligen PDF-Viewers.
 
 Siehe [`examples/forms/01-fill-and-sign.php`](examples/forms/01-fill-and-sign.php).
 
 ## Ressourcen-Sicherheit
 
-tc-lib-pdf erhält weder Internetzugriff noch direkten Zugriff auf Dokumentressourcen im Dateisystem. Bilder und Fonts werden ausschließlich unter Aliasnamen registriert. In einer JSON-/YAML-Konfiguration stehen daher nur Aliase wie `company-logo` oder `body`, niemals URLs oder Dateipfade.
+tc-lib-pdf erhält weder Internetzugriff noch direkten Zugriff auf Dokumentressourcen im Dateisystem. Dateireferenzen in `LetterConfig::fromFile()` werden ausschließlich von der Config-Schicht gelesen und sofort in interne Ressourcen umgewandelt. Im eigentlichen Dokument und Renderer bleiben Bilder und Fonts aliasbasiert.
 
-Bilder kommen als Bytes, Data-URL oder über einen anwendungseigenen Callback in die Library. Ein Cloud-/Storage-Connector läuft außerhalb von tc-lib-pdf. Im Markdown werden Bilder mit `image:<alias>` referenziert, zum Beispiel `![Chart](image:chart)`.
+Bilder können als Bytes, Data-URL oder über einen anwendungseigenen Callback registriert werden. Im Markdown werden Bilder mit `image:<alias>` referenziert, zum Beispiel `![Chart](image:chart)`.
 
-Fonts werden über `FontSource::builtIn()` auf die isoliert nutzbaren PDF-Core-Fonts abgebildet. Laufzeitimporte von TTF/OTF/WOFF gehören bewusst nicht in den Renderer, da der aktuelle Font-Importer dafür Dateizugriff benötigt.
+Fonts werden über `FontSource::builtIn()` beziehungsweise Config-Werte wie `builtin://helvetica` auf isoliert nutzbare PDF-Core-Fonts abgebildet.
 
 Siehe [`examples/letter/02-images.php`](examples/letter/02-images.php).
 
 ## Struktur
 
 - `Lack\PdfDoc\SimpleDocument` – neutrales Markdown-/HTML-Dokument.
-- `Lack\PdfDoc\Letter\LetterConfig` – wiederverwendbare Briefpapier-Konfiguration.
+- `Lack\PdfDoc\Letter\LetterConfig` – wiederverwendbare Briefpapier-Konfiguration mit `fromFile()` und `fromArray()`.
 - `Lack\PdfDoc\Letter\LetterDocument` – konkreter Brief.
 - `Lack\PdfDoc\Letter\LetterLayout` – Maße und Typografie des Briefs.
 - `Lack\PdfDoc\Letter\LetterFooter` – Firmen-, Bank-, Kontakt- und Rechtsangaben.

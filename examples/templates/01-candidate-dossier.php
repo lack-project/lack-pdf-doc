@@ -43,9 +43,7 @@ $template = LetterTemplate::fromArray([
     ],
 ]);
 
-$config = LetterConfig::fromArray([
-    'returnAddress' => 'Example Recruiting GmbH · Musterstraße 1 · 45130 Essen',
-]);
+$config = LetterConfig::fromFile(dirname(__DIR__) . '/letter/letter.yaml');
 
 $dossier = $template->document($config)
     ->data([
