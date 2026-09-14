@@ -1,0 +1,33 @@
+---
+extends: file://letterhead.template.html
+
+defaults:
+  salutation: |
+    Sehr geehrte Damen und Herren,
+  closing: |
+    Mit freundlichen Grüßen
+
+    **Example GmbH**
+---
+<section class="letter-recipient">
+  <table>
+    <tr><th>Name</th><td>{{ meta.recipient.name }}</td></tr>
+    <tr><th>Anschrift</th><td>{{ meta.recipient.street }}<br>{{ meta.recipient.postalCode }} {{ meta.recipient.city }}</td></tr>
+  </table>
+</section>
+
+<section class="letter-subject">
+  <strong>{{ meta.subject }}</strong>
+</section>
+
+<section class="letter-salutation">
+  {{ markdown:meta.salutation }}
+</section>
+
+<section class="letter-content">
+  {{ content }}
+</section>
+
+<section class="letter-closing">
+  {{ markdown:meta.closing }}
+</section>

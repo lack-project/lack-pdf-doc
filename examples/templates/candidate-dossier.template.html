@@ -1,0 +1,39 @@
+---
+extends: file://../letter/letter.yaml
+config:
+  layout:
+    pageLeft: 22mm
+    pageRight: 18mm
+  variables:
+    documentType: Bewerberdossier
+---
+<section class="dossier-greeting">
+  {{ markdown:meta.salutation }}
+</section>
+
+<section class="dossier-master-data">
+  {{ render:candidateTable }}
+</section>
+
+<section class="dossier-main-content">
+  {{ content }}
+</section>
+
+<section class="dossier-assessment">
+  <h2>Abschließende Beurteilung</h2>
+  <p>{{ meta.assessment.summary }}</p>
+  <table>
+    <tr>
+      <th>Bewertung</th>
+      <td>{{ meta.assessment.rating }}</td>
+    </tr>
+    <tr>
+      <th>Empfehlung</th>
+      <td>{{ meta.assessment.recommendation }}</td>
+    </tr>
+    <tr>
+      <th>Referenz</th>
+      <td>{{ meta.application.reference }}</td>
+    </tr>
+  </table>
+</section>

@@ -1,0 +1,4 @@
+.document { font-family: {{style.bodyFont}}; font-size: {{style.bodyFontSize}}; line-height: {{style.bodyLineHeight}}; }
+.document h1 { font-size: 20pt; margin-bottom: 8mm; }
+.document h2 { font-size: 15pt; margin-top: 8mm; margin-bottom: 4mm; }
+.document img { max-width: 100%; height: auto; }
