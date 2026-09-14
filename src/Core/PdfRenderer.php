@@ -19,8 +19,12 @@ final class PdfRenderer
             'markupAllowedPaths' => [],
         ]);
         $pdf->addPage();
-        $font = $pdf->font->insert($pdf->pon, 'helvetica', '', 11);
-        $pdf->page->addContent($font['out']);
+
+        foreach ($document->getFonts() as $font) {
+            $metric = $pdf->font->insert($pdf->pon, $font->family(), $font->style(), 11);
+            $pdf->page->addContent($metric['out']);
+        }
+
         $pdf->addHTMLCell(html: $html, posx: 0, posy: 0, width: 210);
         return $pdf->getOutPDFString();
     }
