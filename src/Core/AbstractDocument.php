@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Lack\PdfDoc\Core;
 
+use Lack\PdfDoc\Form\InteractiveForm;
 use Lack\PdfDoc\Resource\FontSource;
 use Lack\PdfDoc\Resource\ImageSource;
 
@@ -12,6 +13,7 @@ abstract class AbstractDocument
     private string $markdown = '';
     private ?string $html = null;
     private array $variables = [];
+    private ?InteractiveForm $form = null;
     /** @var array<string, ImageSource> */
     private array $images = [];
     /** @var array<string, FontSource> */
@@ -59,6 +61,11 @@ abstract class AbstractDocument
         return $this;
     }
 
+    final public function form(): InteractiveForm
+    {
+        return $this->form ??= new InteractiveForm();
+    }
+
     final public function toPdf(): string
     {
         return (new PdfRenderer())->render($this);
@@ -69,6 +76,7 @@ abstract class AbstractDocument
     final public function getDocumentVariables(): array { return $this->variables; }
     final public function getImages(): array { return $this->images; }
     final public function getFonts(): array { return $this->fonts; }
+    final public function getForm(): ?InteractiveForm { return $this->form; }
 
     abstract public function template(): string;
     abstract public function templateVariables(): array;

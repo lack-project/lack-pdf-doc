@@ -34,6 +34,21 @@ $pdf = $letter->toPdf();
 
 Siehe [`examples/letter/01-basic.php`](examples/letter/01-basic.php).
 
+## Ausfüllbare Formulare und Signaturfelder
+
+Jeder Dokumenttyp kann interaktive PDF-Formulare erhalten. `form()` liefert eine kleine Convenience-API für Textfelder, Checkboxen, Auswahlfelder und digitale Signaturfelder. Die erzeugten AcroForm-Werte können in kompatiblen PDF-Viewern ausgefüllt, gespeichert und mit der gespeicherten PDF-Datei zurückgesendet werden.
+
+```php
+$document->form()
+    ->text('full_name', x: 25, y: 80, width: 90, label: 'Name')
+    ->checkbox('confirmed', x: 25, y: 110, label: 'Angaben geprüft')
+    ->signature('signature', x: 25, y: 140, width: 80, height: 25, label: 'Digital unterschreiben');
+```
+
+Das Signaturfeld ist ein echtes PDF-Signatur-Widget (`/FT /Sig`) für eine digitale, typischerweise zertifikatsbasierte PDF-Signatur. Freihändiges Zeichnen mit Maus oder Finger ist dagegen eine Funktion des jeweiligen PDF-Viewers (z. B. Fill & Sign/Ink) und kann nicht viewerunabhängig als identisches Formularfeld erzwungen werden.
+
+Siehe [`examples/forms/01-fill-and-sign.php`](examples/forms/01-fill-and-sign.php).
+
 ## Ressourcen-Sicherheit
 
 tc-lib-pdf erhält weder Internetzugriff noch direkten Zugriff auf Dokumentressourcen im Dateisystem. Bilder und Fonts werden ausschließlich unter Aliasnamen registriert. In einer JSON-/YAML-Konfiguration stehen daher nur Aliase wie `company-logo` oder `body`, niemals URLs oder Dateipfade.
@@ -51,5 +66,6 @@ Siehe [`examples/letter/02-images.php`](examples/letter/02-images.php).
 - `Lack\PdfDoc\Letter\LetterDocument` – konkreter Brief.
 - `Lack\PdfDoc\Letter\LetterLayout` – Maße und Typografie des Briefs.
 - `Lack\PdfDoc\Letter\LetterFooter` – Firmen-, Bank-, Kontakt- und Rechtsangaben.
+- `Lack\PdfDoc\Form\InteractiveForm` – ausfüllbare Formular- und digitale Signaturfelder.
 - `Lack\PdfDoc\Resource\ImageSource` / `FontSource` – explizit registrierte Ressourcen.
 - `Lack\PdfDoc\Core` – interne Rendering-Infrastruktur.

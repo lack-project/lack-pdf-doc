@@ -8,7 +8,10 @@ use Com\Tecnick\Pdf\Tcpdf;
 
 final class PdfRenderer
 {
-    public function __construct(private readonly ?DocumentParser $parser = null) {}
+    public function __construct(
+        private readonly ?DocumentParser $parser = null,
+        private readonly ?FormRenderer $formRenderer = null,
+    ) {}
 
     public function render(AbstractDocument $document): string
     {
@@ -26,6 +29,12 @@ final class PdfRenderer
         }
 
         $pdf->addHTMLCell(html: $html, posx: 0, posy: 0, width: 210);
+
+        $form = $document->getForm();
+        if ($form !== null) {
+            ($this->formRenderer ?? new FormRenderer())->render($pdf, $form);
+        }
+
         return $pdf->getOutPDFString();
     }
 }
