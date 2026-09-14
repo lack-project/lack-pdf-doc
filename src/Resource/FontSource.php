@@ -2,24 +2,24 @@
 
 declare(strict_types=1);
 
-namespace Lack\PdfDoc\Core;
+namespace Lack\PdfDoc\Resource;
 
 use InvalidArgumentException;
 
 final class FontSource
 {
-    private const CORE_FAMILIES = ['helvetica', 'times', 'courier', 'symbol', 'zapfdingbats'];
+    private const BUILT_IN_FONTS = ['courier', 'helvetica', 'times', 'symbol', 'zapfdingbats'];
 
     private function __construct(
         private readonly string $family,
         private readonly string $style = '',
     ) {}
 
-    public static function registered(string $family, string $style = ''): self
+    public static function builtIn(string $family, string $style = ''): self
     {
         $family = strtolower(trim($family));
-        if (!in_array($family, self::CORE_FAMILIES, true)) {
-            throw new InvalidArgumentException('Only PDF core fonts are allowed in the isolated renderer.');
+        if (!in_array($family, self::BUILT_IN_FONTS, true)) {
+            throw new InvalidArgumentException('Font must be a built-in PDF font.');
         }
         if (preg_match('/[^BI]/', $style)) {
             throw new InvalidArgumentException('Font style may only contain B and I.');

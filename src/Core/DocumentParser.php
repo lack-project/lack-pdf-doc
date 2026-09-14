@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Lack\PdfDoc\Core;
 
+use Lack\PdfDoc\Resource\ImageSource;
 use Phore\Markdown\Markdown;
 use RuntimeException;
 
@@ -11,7 +12,7 @@ final class DocumentParser
 {
     public function __construct(private readonly string $templateDir = __DIR__ . '/../../templates') {}
 
-    public function parse(Document $document): string
+    public function parse(AbstractDocument $document): string
     {
         $dir = rtrim($this->templateDir, '/') . '/' . $document->template();
         $html = @file_get_contents($dir . '/document.html');
@@ -29,8 +30,11 @@ final class DocumentParser
             throw new RuntimeException('External or filesystem CSS resources are not allowed.');
         }
 
-        $content = $document->getHtml() ?? Markdown::toHtml($document->getMarkdown());
-        $values = array_merge($document->variables(), ['css' => $css, 'content' => $content]);
+        $values = array_replace($document->templateVariables(), [
+            'css' => $css,
+            'content' => $document->getHtml() ?? Markdown::toHtml($document->getMarkdown()),
+        ]);
+
         $html = preg_replace_callback('/\{\{([a-zA-Z0-9_.-]+)\}\}/', static fn(array $m): string => (string) ($values[$m[1]] ?? ''), $html)
             ?? throw new RuntimeException('Unable to render PDF template.');
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Lack\PdfDoc\Core;
 
+use Lack\PdfDoc\Resource\FontSource;
 use RuntimeException;
 
 final class FontRegistry

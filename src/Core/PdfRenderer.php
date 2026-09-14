@@ -10,7 +10,7 @@ final class PdfRenderer
 {
     public function __construct(private readonly ?DocumentParser $parser = null) {}
 
-    public function render(Document $document): string
+    public function render(AbstractDocument $document): string
     {
         $html = ($this->parser ?? new DocumentParser())->parse($document);
         $pdf = new Tcpdf(fileOptions: [

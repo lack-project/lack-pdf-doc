@@ -1,27 +1,55 @@
 # lack-pdf-doc
 
-Convenience- und Abstraktionsschicht für `tecnickcom/tc-lib-pdf`. Gemeinsame PDF-Erzeugung liegt unter `Lack\PdfDoc\Core`; konkrete Dokumenttypen kapseln ihre eigene API, Styles und Templates.
+PHP-8.5-Convenience-Layer über `tecnickcom/tc-lib-pdf` für dokumentorientierte PDF-Erzeugung.
 
-## Einstieg
+## Quickstart
 
-Die Beispiele sind als Lesereihe aufgebaut:
+Der einfache Einstieg braucht nur ein Dokument und Markdown:
 
-1. [`examples/01-quickstart.php`](examples/01-quickstart.php) zeigt den kürzesten vollständigen Ablauf: Dokument erzeugen, Ressourcen unter Aliasen registrieren, Markdown setzen, PDF-Bytes rendern und speichern.
-2. [`examples/letterhead/01-basic.php`](examples/letterhead/01-basic.php) baut einen vollständigen Briefkopf mit eigenem Styling, Logo-Alias, Kopfbereich, Absender, Empfänger, Footer-Spalten und Markdown-Inhalt auf.
-3. [`examples/letterhead/02-images.php`](examples/letterhead/02-images.php) ergänzt den Briefkopf um Bilder, deren Bytes aus einem anwendungseigenen Cloud-/Storage-Resolver kommen.
+```php
+$document = (new \Lack\PdfDoc\SimpleDocument())
+    ->markdown("# Hallo\n\nMein erstes PDF.");
 
-`PdfRenderer::render()` liefert immer den fertigen PDF-Inhalt als String. Die Anwendung entscheidet anschließend selbst, ob sie ihn speichert, versendet oder als HTTP-Response ausgibt.
+$pdf = $document->toPdf();
+```
 
-## Sicherheitsmodell für Ressourcen
+Siehe [`examples/01-quickstart.php`](examples/01-quickstart.php).
 
-tc-lib-pdf erhält weder Internetzugriff noch direkten Zugriff auf Dokumentressourcen im Dateisystem. `allowedHosts`, `allowedPaths` und `markupAllowedPaths` werden leer gesetzt. Dokumente referenzieren Bilder und Fonts ausschließlich über Aliase.
+## Brief mit wiederverwendbarer Konfiguration
 
-Markdown referenziert Bilder z. B. mit `![Diagramm](image:chart)`. Der Alias `chart` wird vorher aus bereits vorhandenen Bytes, einer Data-URL oder einem anwendungseigenen Resolver erzeugt. Ein Cloud-/Storage-Connector läuft damit außerhalb von tc-lib-pdf und liefert nur die Bildbytes an den Dokument-Layer. Direkte Bild-URLs und Dateipfade sind nicht erlaubt.
+`LetterConfig` beschreibt das wiederverwendbare Briefpapier: Logo-Alias, Rücksendeadresse, Layout, Footer und eigene Template-Variablen. `LetterDocument` enthält nur die Daten des konkreten Briefes wie Empfänger, Referenzblock, Dokumentvariablen und Markdown/HTML.
 
-Fonts werden ebenfalls über Aliase angesprochen, z. B. `font:body`. Ein Font-Alias darf nur auf einen bereits bei der PDF-Laufzeit registrierten Fontnamen zeigen. Laufzeitimporte von TTF/OTF/WOFF aus Benutzerpfaden sind bewusst nicht Teil dieser API, da tc-lib-pdf-font dafür auf Dateien zugreift. Eigene Fonts müssen daher außerhalb des Dokument-Renderings vertrauenswürdig vorbereitet/registriert werden.
+```php
+$config = \Lack\PdfDoc\Letter\LetterConfig::fromArray($configData);
 
-## Letterhead
+$letter = (new \Lack\PdfDoc\Letter\LetterDocument($config))
+    ->recipientAddress("Erika Mustermann\nBeispielweg 10\n45130 Essen")
+    ->variables(['customerNumber' => '12345'])
+    ->markdown($markdown);
 
-`Lack\PdfDoc\Letterhead\LetterheadDocument` erzeugt einen klassischen Brief mit Logo, Absender-/Empfängerfenster, optionalem Kopfbereich, Markdown- oder HTML-Inhalt und bis zu vier Footer-Spalten. Logo und Fonts werden ausschließlich über Aliase referenziert.
+$pdf = $letter->toPdf();
+```
 
-Weitere Dokumenttypen können mit eigenem Namespace und eigenem Template-Verzeichnis ergänzt werden, ohne die Letterhead-API oder den Core zu erweitern.
+`fromArray()` ist absichtlich das einzige Konfigurations-Eingabeformat. JSON oder YAML werden von der Anwendung dekodiert und anschließend als Array übergeben. Dadurch bleibt die Library unabhängig von einem bestimmten Config-Parser.
+
+Siehe [`examples/letter/01-basic.php`](examples/letter/01-basic.php).
+
+## Ressourcen-Sicherheit
+
+tc-lib-pdf erhält weder Internetzugriff noch direkten Zugriff auf Dokumentressourcen im Dateisystem. Bilder und Fonts werden ausschließlich unter Aliasnamen registriert. In einer JSON-/YAML-Konfiguration stehen daher nur Aliase wie `company-logo` oder `body`, niemals URLs oder Dateipfade.
+
+Bilder kommen als Bytes, Data-URL oder über einen anwendungseigenen Callback in die Library. Ein Cloud-/Storage-Connector läuft außerhalb von tc-lib-pdf. Im Markdown werden Bilder mit `image:<alias>` referenziert, zum Beispiel `![Chart](image:chart)`.
+
+Fonts werden über `FontSource::builtIn()` auf die isoliert nutzbaren PDF-Core-Fonts abgebildet. Laufzeitimporte von TTF/OTF/WOFF gehören bewusst nicht in den Renderer, da der aktuelle Font-Importer dafür Dateizugriff benötigt.
+
+Siehe [`examples/letter/02-images.php`](examples/letter/02-images.php).
+
+## Struktur
+
+- `Lack\PdfDoc\SimpleDocument` – neutrales Markdown-/HTML-Dokument.
+- `Lack\PdfDoc\Letter\LetterConfig` – wiederverwendbare Briefpapier-Konfiguration.
+- `Lack\PdfDoc\Letter\LetterDocument` – konkreter Brief.
+- `Lack\PdfDoc\Letter\LetterLayout` – Maße und Typografie des Briefs.
+- `Lack\PdfDoc\Letter\LetterFooter` – Firmen-, Bank-, Kontakt- und Rechtsangaben.
+- `Lack\PdfDoc\Resource\ImageSource` / `FontSource` – explizit registrierte Ressourcen.
+- `Lack\PdfDoc\Core` – interne Rendering-Infrastruktur.

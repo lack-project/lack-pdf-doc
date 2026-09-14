@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Lack\PdfDoc\Core;
+namespace Lack\PdfDoc\Resource;
 
 use Closure;
 use InvalidArgumentException;
@@ -17,7 +17,6 @@ final class ImageSource
         if (!preg_match('#^data:image/[a-zA-Z0-9.+-]+;base64,#', $dataUrl)) {
             throw new InvalidArgumentException('Only base64 image data URLs are supported.');
         }
-
         return new self(static fn(): string => $dataUrl);
     }
 
@@ -26,21 +25,20 @@ final class ImageSource
         if (!str_starts_with($mimeType, 'image/')) {
             throw new InvalidArgumentException('Image MIME type must start with image/.');
         }
-
         return self::dataUrl('data:' . $mimeType . ';base64,' . base64_encode($bytes));
     }
 
-    public static function resolver(callable $resolver, string $mimeType): self
+    public static function fromCallback(callable $callback, string $mimeType): self
     {
         if (!str_starts_with($mimeType, 'image/')) {
             throw new InvalidArgumentException('Image MIME type must start with image/.');
         }
 
-        $callback = Closure::fromCallable($resolver);
-        return new self(static function () use ($callback, $mimeType): string {
-            $bytes = $callback();
+        $resolver = Closure::fromCallable($callback);
+        return new self(static function () use ($resolver, $mimeType): string {
+            $bytes = $resolver();
             if (!is_string($bytes)) {
-                throw new RuntimeException('Image resolver must return binary image data as string.');
+                throw new RuntimeException('Image callback must return binary image data as string.');
             }
             return 'data:' . $mimeType . ';base64,' . base64_encode($bytes);
         });
