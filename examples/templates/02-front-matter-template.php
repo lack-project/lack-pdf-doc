@@ -1,20 +1,25 @@
 <?php
 
-use Lack\PdfDoc\Letter\LetterConfig;
-use Lack\PdfDoc\Letter\LetterDocument;
-use Lack\PdfDoc\Template\HtmlDocumentTemplate;
 use Lack\PdfDoc\Template\TemplateContext;
+use Lack\PdfDoc\Template\TemplateDocument;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-// Entwurfsbeispiel: HtmlDocumentTemplate/TemplateContext/applyTemplate()/metadata()
-// sind noch nicht implementiert. Der Front-Matter-Parser stammt aus phore/filesystem.
+// Entwurfsbeispiel: TemplateDocument/TemplateContext/fromTemplateFile()/metadata()
+// sind noch nicht implementiert. Front Matter wird direkt über phore/filesystem gelesen.
 $source = phore_file(__DIR__ . '/candidate-dossier.md')->get_front_matter();
 
-$template = HtmlDocumentTemplate::fromFile(__DIR__ . '/candidate-dossier.template.html')
+$document = TemplateDocument::fromTemplateFile(
+    __DIR__ . '/candidate-dossier.template.html',
+    safe: true,
+    configOverrides: [
+        'variables' => [
+            'preparedBy' => 'Recruiting Team',
+        ],
+    ],
+)
     ->renderer('candidateTable', function (TemplateContext $context): string {
         $candidate = $context->meta('candidate');
-
         $rows = [
             ['Name', $candidate['lastName']],
             ['Vorname', $candidate['firstName']],
@@ -29,14 +34,9 @@ $template = HtmlDocumentTemplate::fromFile(__DIR__ . '/candidate-dossier.templat
             $html .= '<td>' . htmlspecialchars((string) $value, ENT_QUOTES) . '</td></tr>';
         }
         return $html . '</table>';
-    });
-
-$config = LetterConfig::fromFile(dirname(__DIR__) . '/letter/letter.yaml');
-
-$letter = (new LetterDocument($config))
-    ->applyTemplate($template)
-    ->metadata($source->header)
+    })
+    ->metadata((array) $source->header)
     ->markdown($source->content);
 
-$pdf = $letter->toPdf();
+$pdf = $document->toPdf();
 file_put_contents(__DIR__ . '/candidate-dossier-front-matter.pdf', $pdf);

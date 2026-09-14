@@ -30,7 +30,7 @@ $letter = (new \Lack\PdfDoc\Letter\LetterDocument($config))
 $pdf = $letter->toPdf();
 ```
 
-JSON wird immer unterstützt. YAML/YML wird nur unterstützt, wenn die optionale PHP-YAML-Extension installiert ist; andernfalls wirft `fromFile()` für YAML eine klare Exception und JSON bleibt vollständig nutzbar.
+Mit `phore/filesystem` steht für YAML-Front-Matter die bestehende `PhoreFile::get_front_matter()`-Implementierung zur Verfügung. JSON/YAML-Konfiguration und Front-Matter verwenden damit dieselbe Phore-Dateischicht.
 
 Ressourcen können direkt in der Config angegeben werden. `file://assets/company-logo.png` ist relativ zur geladenen YAML-/JSON-Datei. `file:///opt/company/company-logo.png` ist ein absoluter Pfad. Eine `data:image/...`-URL kann direkt eingebettet werden. `fromArray()` lehnt `file://` ab, weil dort bewusst kein Basisverzeichnis bekannt ist. Die Datei wird beim Config-Laden gelesen; tc-lib-pdf selbst erhält den Pfad nicht.
 
@@ -71,13 +71,22 @@ Datenpfade verwenden Punktnotation wie `candidate.lastName`. Ein Bildwert enthä
 
 Siehe [`examples/templates/01-candidate-dossier.php`](examples/templates/01-candidate-dossier.php).
 
-## Entwurf: Front-Matter + HTML-Template
+## Entwurf: erbbares Front-Matter-/HTML-Template
 
-Für stärker gestaltete Dossiers liegt zusätzlich ein API-Entwurf vor: Eine Markdown-Datei liefert einen YAML-Front-Matter-Header mit strukturierten Metadaten und darunter den normalen Markdown-Hauptinhalt. Ein separates HTML-Template steuert die Anordnung.
+Zusätzlich liegt ein API-Entwurf vor, bei dem die Template-Datei selbst YAML-Front-Matter besitzt. `extends` kann auf eine bestehende Letter-Config zeigen, `config` überschreibt Werte dieser Basis und programmatische `configOverrides` gewinnen zuletzt. Der HTML-Body des Templates enthält Metadaten-, Markdown-, Main-Content- und Renderer-Platzhalter.
 
-Der Entwurf orientiert sich an `phore/phore-filesystem::PhoreFile::get_front_matter()`. Vorgesehen sind escaped Metadaten-Platzhalter wie `{{ meta.candidate.firstName }}`, Markdown-Platzhalter wie `{{ markdown:meta.salutation }}`, `{{ content }}` für den Markdown-Body und explizite Renderer-Callbacks wie `{{ render:candidateTable }}` für Tabellen oder andere komplexe HTML-Blöcke.
+```yaml
+---
+extends: file://../letter/letter.yaml
+config:
+  layout:
+    pageLeft: 22mm
+---
+```
 
-Diese API ist noch **nicht implementiert**. Die vorgeschlagenen Namen und der vollständige Ablauf stehen in [`docs/front-matter-template-design.md`](docs/front-matter-template-design.md). Kopierbare Eingaben liegen in [`examples/templates/candidate-dossier.md`](examples/templates/candidate-dossier.md) und [`examples/templates/candidate-dossier.template.html`](examples/templates/candidate-dossier.template.html); [`examples/templates/02-front-matter-template.php`](examples/templates/02-front-matter-template.php) zeigt den geplanten PHP-Ablauf.
+Der geplante Loader `TemplateDocument::fromTemplateFile()` ist standardmäßig `safe: false`: relative Datei-Referenzen aus dem Template werden dann nicht automatisch geladen. Mit `safe: true` erklärt die Anwendung das Template-Verzeichnis ausdrücklich als vertrauenswürdig und erlaubt relative `file://`-Referenzen. Konkrete Dokumentdaten werden direkt mit `phore_file(...)->get_front_matter()` in `header` und Markdown-`content` getrennt.
+
+Siehe [`docs/front-matter-template-design.md`](docs/front-matter-template-design.md), [`examples/templates/candidate-dossier.template.html`](examples/templates/candidate-dossier.template.html) und [`examples/templates/02-front-matter-template.php`](examples/templates/02-front-matter-template.php). Dieser Teil ist ausdrücklich noch Entwurf und keine produktive API.
 
 ## Ausfüllbare Formulare und Signaturfelder
 
