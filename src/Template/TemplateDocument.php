@@ -7,6 +7,7 @@ namespace Lack\PdfDoc\Template;
 use InvalidArgumentException;
 use Lack\PdfDoc\Core\AbstractDocument;
 use Lack\PdfDoc\Resource\FontSource;
+use Lack\PdfDoc\Resource\ImageSource;
 use Phore\Markdown\Markdown;
 use RuntimeException;
 
@@ -147,6 +148,9 @@ final class TemplateDocument extends AbstractDocument
             if (str_starts_with($expression, 'markdown:meta.')) {
                 return Markdown::toHtml($this->scalar($this->meta(substr($expression, 14)), $expression));
             }
+            if (str_starts_with($expression, 'image:meta.')) {
+                return $this->renderImage(substr($expression, 11));
+            }
             if (str_starts_with($expression, 'render:')) {
                 $name = substr($expression, 7);
                 $renderer = $this->renderers[$name] ?? null;
@@ -162,6 +166,46 @@ final class TemplateDocument extends AbstractDocument
             throw new RuntimeException('Unsupported template placeholder: ' . $expression);
         }, $this->templateHtml);
         return $html ?? throw new RuntimeException('Unable to render template document.');
+    }
+
+    private function renderImage(string $path): string
+    {
+        $value = $this->meta($path);
+        if ($value instanceof ImageSource) {
+            $alias = 'template-' . substr(sha1($path), 0, 12);
+            $this->image($alias, $value);
+            return '<img src="image:' . $alias . '">';
+        }
+
+        $value = $this->scalar($value, 'image:meta.' . $path);
+        $alias = 'template-' . substr(sha1($path . "\0" . $value), 0, 12);
+        if (str_starts_with($value, 'data:image/')) {
+            $this->image($alias, ImageSource::dataUrl($value));
+            return '<img src="image:' . $alias . '">';
+        }
+        if (str_starts_with($value, 'image:')) {
+            return '<img src="' . htmlspecialchars($value, ENT_QUOTES) . '">';
+        }
+        if (!str_starts_with($value, 'file://')) {
+            throw new RuntimeException('Unsupported template image resource for metadata path: ' . $path);
+        }
+        if (!$this->safe) {
+            throw new RuntimeException('File image references require safe mode: ' . $value);
+        }
+
+        $file = self::fileReferenceToPath($value);
+        self::assertReadableFile($file, 'Template image');
+        $bytes = file_get_contents($file);
+        if ($bytes === false) {
+            throw new RuntimeException('Unable to read template image: ' . $file);
+        }
+        $imageInfo = @getimagesizefromstring($bytes);
+        $mimeType = is_array($imageInfo) ? ($imageInfo['mime'] ?? null) : null;
+        if (!is_string($mimeType) || !str_starts_with($mimeType, 'image/')) {
+            throw new RuntimeException('Unable to detect image type for template image: ' . $file);
+        }
+        $this->imageBytes($alias, $bytes, $mimeType);
+        return '<img src="image:' . $alias . '">';
     }
 
     private function scalar(mixed $value, string $expression): string
@@ -251,7 +295,7 @@ final class TemplateDocument extends AbstractDocument
     private static function pathToFileReference(string $path): string
     {
         $realPath = realpath($path) ?: $path;
-        return 'file://' . (str_starts_with($realPath, '/') ? '/' : '') . $realPath;
+        return 'file://' . $realPath;
     }
 
     private static function assertReadableFile(string $file, string $label): void
