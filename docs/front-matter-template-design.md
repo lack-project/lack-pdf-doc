@@ -6,7 +6,7 @@ Status: Implementiert über `TemplateDocument` und `TemplateContext`.
 
 Die Template-Pipeline verwendet `TemplateDocument` als allgemeinen Dokumenttyp. Ein Brief, Bewerberdossier oder anderes Dokument unterscheidet sich durch Template und Daten. Die bestehende Letter-API bleibt parallel bestehen und wird durch diese Pipeline nicht entfernt.
 
-Sowohl Templates als auch konkrete Dokumente können YAML-Front-Matter besitzen. `TemplateDocument` liest die Datei selbst, trennt Front Matter vom Body und dekodiert den YAML-Header mit `phore_yaml_decode()`. Dateien ohne Front Matter werden als reiner Body akzeptiert.
+Sowohl Templates als auch konkrete Dokumente können YAML-Front-Matter besitzen. Mit `phore/filesystem >= 1.1.1` verwendet `TemplateDocument` direkt `PhoreFile::get_front_matter()` für die Trennung von Header und Body. Dateien ohne Front Matter werden weiterhin als reiner Body akzeptiert.
 
 - Beim Template ist `header` die Template-/Config-Metadatenebene und `content` der HTML-Template-Body.
 - Beim konkreten Dokument ist `header` die Dokument-Metadatenebene und `content` der Markdown-Hauptinhalt.
@@ -17,8 +17,8 @@ Templates können mit `extends` von einem anderen Template erben. Der Child-HTML
 
 Damit lässt sich eine Kette aufbauen:
 
-1. `letter-defaults.template.html` — Firmenstandardwerte, Standardlogo, Fonts und Grundlayout.
-2. `letterhead.template.html` — erbt die Defaults und definiert Briefkopf/Footer.
+1. `letter-defaults.template.html` — Firmenstandardwerte, Fonts und echte PDF-Seitenränder.
+2. `letterhead.template.html` — erbt die Defaults und definiert Briefkopf, Logo und Footer.
 3. `letter.template.html` — erbt den Briefkopf und definiert Empfängerblock, Betreff, Grußformel, Hauptinhalt und Abschluss.
 4. `letter.md` — konkrete Dokumentmetadaten + Markdown-Hauptinhalt.
 
@@ -41,12 +41,18 @@ config:
   fonts:
     body: builtin://helvetica
   layout:
+    pageLeft: 20mm
+    pageRight: 20mm
+    pageTop: 15mm
+    pageBottom: 20mm
     bodyFont: body
 ---
 {{ template }}
 ```
 
-Ein erbendes Briefkopf-Template braucht dann nur noch:
+Die Seitenränder aus `config.layout` werden vom PDF-Renderer als echte Seitenränder angewendet. Sie begrenzen damit sowohl den HTML-Renderbereich als auch den verfügbaren Seitenraum und sind nicht nur CSS-Margins innerhalb des Dokuments.
+
+Ein erbendes Briefkopf-Template definiert anschließend nur noch den Briefkopf selbst:
 
 ```yaml
 ---
@@ -105,7 +111,7 @@ $document = TemplateDocument::fromTemplateFile(
 $pdf = $document->toPdf();
 ```
 
-`fromMarkdownFile()` liest und validiert die Datei, dekodiert den optionalen YAML-Header und übernimmt den Body als Markdown-Hauptinhalt. Dateibezogene Fehler enthalten den betroffenen Dateinamen.
+`fromMarkdownFile()` verwendet `PhoreFile::get_front_matter()` für YAML-Header und Markdown-Body. Dateibezogene Fehler des Dateisystems werden nicht erneut verpackt; dadurch bleibt der tatsächlich verwendete Dateiname direkt in der ursprünglichen Exception erhalten.
 
 Ein Dokument mit abweichendem Logo braucht keinen anderen PHP-Code. Es verwendet dieselbe Template-Kette und überschreibt `company.logo` nur in seinem Front Matter.
 
