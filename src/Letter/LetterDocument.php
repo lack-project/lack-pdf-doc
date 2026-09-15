@@ -42,6 +42,11 @@ class LetterDocument extends AbstractDocument
         return 'letter';
     }
 
+    public function renderTemplateName(): string
+    {
+        return $this->template();
+    }
+
     public function templateVariables(): array
     {
         $values = array_replace($this->config->variables, $this->getDocumentVariables());

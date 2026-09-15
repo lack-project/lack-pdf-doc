@@ -1,155 +1,151 @@
-# Front-Matter + HTML-Templates
+# Front-Matter + Dokument-Templates
 
-Status: Implementiert über `TemplateDocument` und `TemplateContext`.
+Status: Implementiert über `Document`, `TemplateDocument`, `Fragment` und `TemplateContext`.
 
-## Zielbild
+## Rollen und Abhängigkeiten
 
-Die Template-Pipeline verwendet `TemplateDocument` als allgemeinen Dokumenttyp. Ein Brief, Bewerberdossier oder anderes Dokument unterscheidet sich durch Template und Daten. Die bestehende Letter-API bleibt parallel bestehen und wird durch diese Pipeline nicht entfernt.
+Das Dateimodell kennt drei Rollen. Jede neue Datei trägt ihren Typ explizit im Front Matter, und die Abhängigkeit läuft ausschließlich in eine Richtung:
 
-Sowohl Templates als auch konkrete Dokumente können YAML-Front-Matter besitzen. Mit `phore/filesystem >= 1.1.1` verwendet `TemplateDocument` direkt `PhoreFile::get_front_matter()` für die Trennung von Header und Body. Dateien ohne Front Matter werden weiterhin als reiner Body akzeptiert.
-
-- Beim Template ist `header` die Template-/Config-Metadatenebene und `content` der HTML-Template-Body.
-- Beim konkreten Dokument ist `header` die Dokument-Metadatenebene und `content` der Markdown-Hauptinhalt.
-
-## Template-Vererbung
-
-Templates können mit `extends` von einem anderen Template erben. Der Child-HTML-Body wird im Parent an `{{ template }}` eingesetzt. `{{ content }}` bleibt ausschließlich dem Markdown-Hauptinhalt des konkreten Dokuments vorbehalten.
-
-Damit lässt sich eine Kette aufbauen:
-
-1. `letter-defaults.template.html` — Firmenstandardwerte, Fonts und echte PDF-Seitenränder.
-2. `letterhead.template.html` — erbt die Defaults und definiert Briefkopf, Logo und Footer.
-3. `letter.template.html` — erbt den Briefkopf und definiert Empfängerblock, Betreff, Grußformel, Hauptinhalt und Abschluss.
-4. `letter.md` — konkrete Dokumentmetadaten + Markdown-Hauptinhalt.
-
-## Front-Matter-Struktur
-
-Beispiel für Firmen-Defaults:
-
-```yaml
----
-defaults:
-  company:
-    name: Example GmbH
-    logo: file://../letter/assets/company-logo.png
-    address:
-      street: Musterstraße 1
-      postalCode: "45130"
-      city: Essen
-
-config:
-  fonts:
-    body: builtin://helvetica
-  layout:
-    pageLeft: 20mm
-    pageRight: 20mm
-    pageTop: 15mm
-    pageBottom: 20mm
-    bodyFont: body
----
-{{ template }}
+```text
+document -> template -> fragment
 ```
 
-Die Seitenränder aus `config.layout` werden vom PDF-Renderer als echte Seitenränder angewendet. Sie begrenzen damit sowohl den HTML-Renderbereich als auch den verfügbaren Seitenraum und sind nicht nur CSS-Margins innerhalb des Dokuments.
+### `type: document`
 
-Ein erbendes Briefkopf-Template definiert anschließend nur noch den Briefkopf selbst:
+Ein Dokument ist eine konkrete fachliche Instanz, zum Beispiel ein Brief oder eine Rechnung. Es enthält genau einen Template-Verweis, Metadaten und optional einen Markdown-Body. Ein Dokument definiert keine Seitenpositionen und importiert keine Fragmente.
 
 ```yaml
 ---
-extends: file://letter-defaults.template.html
+type: document
+template: file://letter.template.html
+recipient:
+  name: Erika Mustermann
+showTerms: false
 ---
-<header>
+
+# Betreff
+
+Normaler Markdown-Inhalt.
+```
+
+Geladen wird es direkt als konkretes Dokument:
+
+```php
+$document = Document::fromFile(__DIR__ . '/letter.md', safe: true);
+```
+
+`Document::template()` liefert das zugrunde liegende `TemplateDocument`. Nach dem Laden können Metadaten und Markdown-Hauptinhalt mit `metadata()` und `markdown()` geändert werden.
+
+### `type: template`
+
+Ein Template definiert den Aufbau eines Dokumenttyps. Es kann von einem Parent-Template erben, Haupt-Content-Bereiche festlegen und Fragmente importieren. Es enthält keine konkrete Rechnungsnummer oder Empfängerinstanz.
+
+```yaml
+---
+type: template
+content:
+  first:
+    x: 20mm
+    y: 82mm
+    width: 170mm
+    bottom: 34mm
+  following:
+    x: 20mm
+    y: 24mm
+    width: 170mm
+    bottom: 15mm
+fragments:
+  - file://fragments/letterhead-first.md
+  - file://fragments/logo-following.md
+  - file://fragments/footer-first.md
+  - file://fragments/terms.md
+---
+{{ content }}
+```
+
+Ein Template wird unabhängig geladen und kann mehrere Dokumente erzeugen:
+
+```php
+$template = TemplateDocument::fromFile(__DIR__ . '/invoice.template.html', safe: true);
+
+$invoice = $template->createDocument()
+    ->metadata($invoiceData)
+    ->markdown($optionalContent);
+```
+
+### `type: fragment`
+
+Ein Fragment ist ein wiederverwendbarer Inhaltsbaustein. Es kennt kein Dokument, wählt kein Template und importiert keine weiteren Fragmente. `Fragment::fromFile()` lädt ausschließlich Dateien mit `type: fragment`.
+
+Ein positioniertes Fragment kann Briefkopf, Logo oder Footer enthalten:
+
+```yaml
+---
+type: fragment
+format: html
+pages: first
+position:
+  x: 120mm
+  y: 12mm
+  width: 70mm
+  height: 55mm
+---
+<div style="text-align:right;">
   {{ image:meta.company.logo }}
   {{ meta.company.name }}
-</header>
-
-{{ template }}
+</div>
 ```
 
-## Merge- und Override-Reihenfolge
+`pages` unterstützt `first`, `following` und `all`. `width` und `height` sind für positionierte Fragmente verpflichtend, damit `tc-lib-pdf` sie als begrenzte absolute `getHTMLCell()`-Box behandelt.
 
-Metadaten und Config werden rekursiv zusammengeführt. Spätere Ebenen gewinnen:
-
-1. Defaults des ältesten Parent-Templates,
-2. Defaults/Config der erbenden Child-Templates,
-3. Front Matter des konkreten Markdown-Dokuments,
-4. programmatische `metadataOverrides` / `configOverrides` beim Laden.
-
-Dadurch kann ein konkretes Dokument gezielt nur einen einzelnen Wert überschreiben. Beispiel: Das Standardlogo kommt aus `letter-defaults.template.html`; ein einzelner Brief überschreibt nur:
+Ein Fragment ohne `position` kann zusätzlichen Flow-Content liefern, zum Beispiel AGB:
 
 ```yaml
 ---
-company:
-  logo: data:image/png;base64,...
+type: fragment
+placement: after
+if: meta.showTerms
+pageBreakBefore: true
+format: markdown
 ---
+# Allgemeine Geschäftsbedingungen
+
+...
 ```
 
-Der restliche Briefkopf bleibt unverändert geerbt.
+`if` referenziert derzeit bewusst nur einen `meta.*`-Pfad. Das Fragment wird nur angezeigt, wenn der endgültige Wert exakt der boolesche Wert `true` ist.
+
+## Haupt-Content-Bereich
+
+`following` bildet den normalen Seitenfluss. Die `first`-Box muss innerhalb dieses Bereichs liegen. Auf Seite 1 reserviert der Renderer zusätzliche Kopf-/Fußbereiche mit page-spezifischen No-Write-Regions; automatisch erzeugte Folgeseiten besitzen diese Reservierung nicht und nutzen den größeren `following`-Bereich.
 
 ## Platzhalter
 
-Die Pipeline unterstützt folgende Platzhalter:
+Template- und Fragmentinhalte verwenden dieselben Platzhalter:
 
-- `{{ meta.candidate.firstName }}` — skalarer Metadatenwert, HTML-escaped.
-- `{{ markdown:meta.salutation }}` — Metadatenwert wird als Markdown gerendert.
-- `{{ image:meta.company.logo }}` — Bildressource aus einem Metadatenpfad; Data-URL, `file://` im Safe-Modus oder registrierter `image:`-Alias.
-- `{{ template }}` — HTML-Body des erbenden Child-Templates.
-- `{{ content }}` — gerenderter Markdown-Hauptinhalt des konkreten Dokuments.
-- `{{ render:candidateTable }}` — registrierter Renderer-Callback für komplexes HTML wie Tabellen.
+- `{{ meta.* }}` — skalarer Wert, HTML-escaped.
+- `{{ markdown:meta.* }}` — Metadatenwert als Markdown.
+- `{{ image:meta.* }}` — Bildressource.
+- `{{ render:name }}` — registrierter PHP-Renderer.
+- `{{ content }}` — Markdown-Hauptinhalt des konkreten Dokuments.
+- `{{ template }}` — nur für Template-Vererbung.
 
-Ein fehlender Pflichtwert, Renderer oder Parent löst eine Exception aus statt still leeres HTML zu erzeugen.
+## Lade-API
 
-## Standardablauf
+Die Typen bilden die Dateien direkt ab:
 
-```php
-$document = TemplateDocument::fromTemplateFile(
-    __DIR__ . '/letter.template.html',
-    safe: true,
-)
-    ->fromMarkdownFile(__DIR__ . '/letter.md');
-
-$pdf = $document->toPdf();
+```text
+Document::fromFile()         -> type: document
+TemplateDocument::fromFile() -> type: template
+Fragment::fromFile()         -> type: fragment
 ```
 
-`fromMarkdownFile()` verwendet `PhoreFile::get_front_matter()` für YAML-Header und Markdown-Body. Dateibezogene Fehler des Dateisystems werden nicht erneut verpackt; dadurch bleibt der tatsächlich verwendete Dateiname direkt in der ursprünglichen Exception erhalten.
+Für bestehende Aufrufer bleibt `TemplateDocument::fromTemplateFile(...)->fromMarkdownFile(...)` als Legacy-Einstieg erhalten. Neue Implementierungen sollen die typisierte `fromFile()`-API verwenden.
 
-Ein Dokument mit abweichendem Logo braucht keinen anderen PHP-Code. Es verwendet dieselbe Template-Kette und überschreibt `company.logo` nur in seinem Front Matter.
+## Beispielaufbau
 
-## Renderer-Callbacks
+`examples/templates/04-letter-page-fragments.php` zeigt ein vollständiges Dokument über `Document::fromFile()`. `examples/templates/05-invoice-page-fragments.php` lädt dagegen nur das Rechnungstemplate und erzeugt mit `createDocument()` eine programmatisch befüllte Rechnung.
 
-Komplexe Darstellungen bleiben explizit registriert:
+## Safe-Modus und Typprüfung
 
-```php
-$document->renderer('candidateTable', function (TemplateContext $context): string {
-    $candidate = $context->meta('candidate');
-
-    return HtmlTable::fromRows([
-        ['Name', $candidate['lastName']],
-        ['Vorname', $candidate['firstName']],
-        ['Wohnort', $candidate['city']],
-        ['Geburtsdatum', $candidate['birthDate']],
-    ]);
-});
-```
-
-Callbacks sind durch `render:` klar von normalen Datenwerten getrennt.
-
-## Safe-Modus und Dateizugriffe
-
-`TemplateDocument::fromTemplateFile()` ist standardmäßig `safe: false`.
-
-Im Standardmodus wird die angegebene Template-Datei gelesen und geparst, aber `extends` und `file://`-Bildressourcen werden nicht automatisch geöffnet.
-
-Mit `safe: true` erklärt die Anwendung die Template-Kette als vertrauenswürdig. Dann dürfen relative Referenzen wie `file://letter-defaults.template.html` oder `file://../letter/assets/company-logo.png` relativ zur jeweils referenzierenden Datei aufgelöst werden. `file:///...` bleibt ein absoluter Pfad.
-
-Dateinahe Fehler nennen den tatsächlich verwendeten Dateipfad in der Exception. Die Auflösung geschieht ausschließlich in der Template-Ladeschicht; tc-lib-pdf selbst erhält weiterhin keine frei auflösbaren Datei- oder Netzwerkpfade.
-
-## Rolle der bisherigen Letter-Klassen
-
-Die generische Template-Pipeline ergänzt die vorhandene `LetterDocument`-API. `LetterConfig`, `LetterLayout`, `LetterFooter` und `LetterDocument` bleiben bestehen; eine spätere Migration oder Entfernung ist nicht Bestandteil dieser Implementierung.
-
-## Sicherheits- und Rendering-Regeln
-
-Skalare Metadaten werden standardmäßig escaped. Rohes HTML darf nicht über normale Metadaten-Platzhalter eingeschleust werden. HTML entsteht nur aus den kontrollierten Template-Bodies, Markdown-Rendering oder registrierten Renderer-Callbacks.
-
-Dateizugriffe aus Template-Front-Matter werden nur bei explizitem `safe: true` automatisch relativ aufgelöst. Bildressourcen werden beim Rendern in interne `ImageSource`-Ressourcen überführt; der PDF-Renderer selbst bleibt vom Dateisystem und Netzwerk isoliert.
+`Document::fromFile()` verlangt `type: document`, `TemplateDocument::fromFile()` verlangt `type: template`, und `Fragment::fromFile()` verlangt `type: fragment`. Template-Vererbung, Dokument-Template-Referenzen, Fragmentimporte und relative `file://`-Bildressourcen werden nur bei `safe: true` aufgelöst. Dateifehler bleiben an der Dateisystem-Abstraktionsgrenze und enthalten den tatsächlich verwendeten Dateipfad.

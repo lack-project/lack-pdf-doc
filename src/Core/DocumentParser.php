@@ -14,11 +14,12 @@ final class DocumentParser
 
     public function parse(AbstractDocument $document): string
     {
-        $dir = rtrim($this->templateDir, '/') . '/' . $document->template();
+        $templateName = $document->renderTemplateName();
+        $dir = rtrim($this->templateDir, '/') . '/' . $templateName;
         $html = @file_get_contents($dir . '/document.html');
         $css = @file_get_contents($dir . '/document.css');
         if ($html === false || $css === false) {
-            throw new RuntimeException('PDF template not found: ' . $document->template());
+            throw new RuntimeException('PDF template not found: ' . $templateName);
         }
 
         foreach ($document->styleVariables() as $name => $value) {
@@ -38,6 +39,11 @@ final class DocumentParser
         $html = preg_replace_callback('/\{\{([a-zA-Z0-9_.-]+)\}\}/', static fn(array $m): string => (string) ($values[$m[1]] ?? ''), $html)
             ?? throw new RuntimeException('Unable to render PDF template.');
 
+        return $this->resolveResources($document, $html);
+    }
+
+    public function resolveResources(AbstractDocument $document, string $html): string
+    {
         if (preg_match('#<img\b[^>]*\bsrc=["\'](?!image:[a-zA-Z0-9_.-]+["\'])#i', $html)) {
             throw new RuntimeException('Images in document markup must reference a registered image:<alias>.');
         }

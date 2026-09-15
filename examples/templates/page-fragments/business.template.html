@@ -1,0 +1,43 @@
+---
+type: template
+defaults:
+  company:
+    name: Example GmbH
+    logo: file://../../letter/assets/company-logo.png
+    address:
+      street: Musterstraße 1
+      postalCode: "45130"
+      city: Essen
+    contact:
+      email: kontakt@example.de
+      phone: "+49 201 123456"
+    bank:
+      name: Musterbank
+      iban: DE00 0000 0000 0000 0000 00
+      bic: MUSTDE00XXX
+  showTerms: false
+config:
+  fonts:
+    body: builtin://helvetica
+  layout:
+    bodyFont: body
+    bodyFontSize: 11pt
+    bodyLineHeight: "1.45"
+content:
+  first:
+    x: 20mm
+    y: 82mm
+    width: 170mm
+    bottom: 34mm
+  following:
+    x: 20mm
+    y: 24mm
+    width: 170mm
+    bottom: 15mm
+fragments:
+  - file://fragments/letterhead-first.md
+  - file://fragments/logo-following.md
+  - file://fragments/footer-first.md
+  - file://fragments/terms.md
+---
+{{ template }}

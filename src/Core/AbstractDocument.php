@@ -78,7 +78,17 @@ abstract class AbstractDocument
     final public function getFonts(): array { return $this->fonts; }
     final public function getForm(): ?InteractiveForm { return $this->form; }
 
-    abstract public function template(): string;
+    public function contentLayout(): array
+    {
+        return [];
+    }
+
+    public function pageFragments(): array
+    {
+        return [];
+    }
+
+    abstract public function renderTemplateName(): string;
     abstract public function templateVariables(): array;
     abstract public function styleVariables(): array;
 }
