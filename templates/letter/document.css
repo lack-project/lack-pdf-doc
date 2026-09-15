@@ -1,14 +1,15 @@
 @page { margin: 18mm {{style.pageRight}} 22mm {{style.pageLeft}}; }
 .page { font-family: {{style.bodyFont}}; font-size: {{style.bodyFontSize}}; line-height: {{style.bodyLineHeight}}; }
 .logo { text-align: right; height: 26mm; }
-.logo img { max-width: {{style.logoWidth}}; max-height: {{style.logoHeight}}; }
+.logo img { width: {{style.logoWidth}}; }
 .reference-block { text-align: right; min-height: 10mm; font-size: 9pt; }
 .address-window { width: 90mm; min-height: 42mm; margin-top: 8mm; }
 .return-address { font-size: 7.5pt; border-bottom: 0.2mm solid #777; padding-bottom: 1mm; margin-bottom: 4mm; }
 .recipient-address { line-height: 1.3; }
 .document { margin-top: 8mm; }
-.document h1 { font-size: 18pt; margin: 0 0 7mm; }
-.document h2 { font-size: 14pt; margin: 7mm 0 3mm; }
+.document h1 { font-size: 18pt; margin: 0 0 7mm; page-break-after: avoid; }
+.document h2 { font-size: 14pt; margin: 7mm 0 3mm; page-break-after: avoid; }
+.document h3 { page-break-after: avoid; }
 .document p { margin: 0 0 4mm; }
 .document img { max-width: 100%; height: auto; }
 .template-section { margin: 0 0 6mm; }
