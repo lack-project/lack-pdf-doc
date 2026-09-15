@@ -23,7 +23,7 @@ final class TemplateDocument extends AbstractDocument
         private readonly array $config,
         private readonly array $metadataOverrides,
         private readonly array $contentLayout,
-        private readonly array $elements,
+        private readonly array $fragments,
     ) {
         $this->configureFonts();
     }
@@ -42,7 +42,7 @@ final class TemplateDocument extends AbstractDocument
             self::mergeRecursive($loaded['config'], $configOverrides),
             $metadataOverrides,
             $loaded['contentLayout'],
-            $loaded['elements'],
+            $loaded['fragments'],
         );
     }
 
@@ -54,6 +54,8 @@ final class TemplateDocument extends AbstractDocument
     ): self {
         $source = self::readFrontMatter($file);
         $header = $source['header'];
+        self::assertType($header, 'document', $file);
+
         $template = $header['template'] ?? null;
         if (!is_string($template) || $template === '') {
             throw new RuntimeException('Document front matter is missing template in: ' . $file);
@@ -65,7 +67,7 @@ final class TemplateDocument extends AbstractDocument
             throw new RuntimeException('Unsupported document template reference in ' . $file . ': ' . $template);
         }
 
-        unset($header['template']);
+        unset($header['type'], $header['template']);
         if ($safe) {
             $header = self::normalizeFileReferences($header, $file);
         }
@@ -136,18 +138,18 @@ final class TemplateDocument extends AbstractDocument
     public function pageElements(): array
     {
         $result = [];
-        foreach ($this->elements as $element) {
-            if (!$this->elementEnabled($element) || !isset($element['position'])) {
+        foreach ($this->fragments as $fragment) {
+            if (!$this->fragmentEnabled($fragment) || !isset($fragment['position'])) {
                 continue;
             }
-            $position = (array) $element['position'];
+            $position = (array) $fragment['position'];
             $result[] = [
-                'pages' => (string) ($element['pages'] ?? 'all'),
+                'pages' => (string) ($fragment['pages'] ?? 'all'),
                 'x' => (string) ($position['x'] ?? '0mm'),
                 'y' => (string) ($position['y'] ?? '0mm'),
                 'width' => (string) ($position['width'] ?? '0mm'),
                 'height' => (string) ($position['height'] ?? '0mm'),
-                'html' => $this->renderElement($element),
+                'html' => $this->renderFragment($fragment),
             ];
         }
         return $result;
@@ -193,26 +195,26 @@ final class TemplateDocument extends AbstractDocument
     private function renderTemplate(): string
     {
         $html = $this->renderMarkup($this->templateHtml, true);
-        foreach ($this->elements as $element) {
-            if (!$this->elementEnabled($element) || ($element['placement'] ?? null) !== 'after') {
+        foreach ($this->fragments as $fragment) {
+            if (!$this->fragmentEnabled($fragment) || ($fragment['placement'] ?? null) !== 'after') {
                 continue;
             }
-            $fragment = $this->renderElement($element);
-            if (($element['pageBreakBefore'] ?? false) === true) {
-                $fragment = '<div style="page-break-before: always;">' . $fragment . '</div>';
+            $rendered = $this->renderFragment($fragment);
+            if (($fragment['pageBreakBefore'] ?? false) === true) {
+                $rendered = '<div style="page-break-before: always;">' . $rendered . '</div>';
             }
-            $html .= $fragment;
+            $html .= $rendered;
         }
         return $html;
     }
 
-    private function renderElement(array $element): string
+    private function renderFragment(array $fragment): string
     {
-        $body = $this->renderMarkup((string) ($element['body'] ?? ''), false);
-        return match ((string) ($element['format'] ?? 'markdown')) {
+        $body = $this->renderMarkup((string) ($fragment['body'] ?? ''), false);
+        return match ((string) ($fragment['format'] ?? 'markdown')) {
             'markdown' => Markdown::toHtml($body),
             'html' => $body,
-            default => throw new RuntimeException('Unsupported template element format: ' . (string) $element['format']),
+            default => throw new RuntimeException('Unsupported template fragment format: ' . (string) $fragment['format']),
         };
     }
 
@@ -255,14 +257,14 @@ final class TemplateDocument extends AbstractDocument
         return $html ?? throw new RuntimeException('Unable to render template markup.');
     }
 
-    private function elementEnabled(array $element): bool
+    private function fragmentEnabled(array $fragment): bool
     {
-        $condition = $element['if'] ?? null;
+        $condition = $fragment['if'] ?? null;
         if ($condition === null || $condition === '') {
             return true;
         }
         if (!is_string($condition) || !str_starts_with($condition, 'meta.')) {
-            throw new RuntimeException('Element if condition must reference meta.*');
+            throw new RuntimeException('Fragment if condition must reference meta.*');
         }
         $found = false;
         $value = $this->findMeta(substr($condition, 5), $found);
@@ -341,10 +343,14 @@ final class TemplateDocument extends AbstractDocument
 
         $source = self::readFrontMatter($file);
         $header = $source['header'];
+        if (array_key_exists('type', $header)) {
+            self::assertType($header, 'template', $file);
+        }
         $defaults = (array) ($header['defaults'] ?? []);
         $config = (array) ($header['config'] ?? []);
         $contentLayout = (array) ($header['content'] ?? []);
-        $elements = self::loadElements($header['elements'] ?? [], $file, $safe);
+        $fragmentRefs = $header['fragments'] ?? ($header['elements'] ?? []);
+        $fragments = self::loadFragments($fragmentRefs, $file, $safe);
         if ($safe) {
             $defaults = self::normalizeFileReferences($defaults, $file);
             $config = self::normalizeFileReferences($config, $file);
@@ -358,7 +364,7 @@ final class TemplateDocument extends AbstractDocument
                 'defaults' => $defaults,
                 'config' => $config,
                 'contentLayout' => $contentLayout,
-                'elements' => $elements,
+                'fragments' => $fragments,
             ];
         }
         if (!is_string($extends)) {
@@ -382,34 +388,35 @@ final class TemplateDocument extends AbstractDocument
             'defaults' => self::mergeRecursive($parent['defaults'], $defaults),
             'config' => self::mergeRecursive($parent['config'], $config),
             'contentLayout' => self::mergeRecursive($parent['contentLayout'], $contentLayout),
-            'elements' => array_merge($parent['elements'], $elements),
+            'fragments' => array_merge($parent['fragments'], $fragments),
         ];
     }
 
-    private static function loadElements(mixed $elementRefs, string $templateFile, bool $safe): array
+    private static function loadFragments(mixed $fragmentRefs, string $templateFile, bool $safe): array
     {
-        if ($elementRefs === null || $elementRefs === []) {
+        if ($fragmentRefs === null || $fragmentRefs === []) {
             return [];
         }
-        if (is_string($elementRefs)) {
-            $elementRefs = [$elementRefs];
+        if (is_string($fragmentRefs)) {
+            $fragmentRefs = [$fragmentRefs];
         }
-        if (!is_array($elementRefs)) {
-            throw new RuntimeException('Template elements must be a file reference list in: ' . $templateFile);
+        if (!is_array($fragmentRefs)) {
+            throw new RuntimeException('Template fragments must be a file reference list in: ' . $templateFile);
         }
         if (!$safe) {
-            throw new RuntimeException('Template element imports require safe mode: ' . $templateFile);
+            throw new RuntimeException('Template fragment imports require safe mode: ' . $templateFile);
         }
 
-        $elements = [];
-        foreach ($elementRefs as $reference) {
+        $fragments = [];
+        foreach ($fragmentRefs as $reference) {
             if (!is_string($reference) || !str_starts_with($reference, 'file://')) {
-                throw new RuntimeException('Template element must be a file:// reference in: ' . $templateFile);
+                throw new RuntimeException('Template fragment must be a file:// reference in: ' . $templateFile);
             }
             $file = self::resolveFileReference($reference, $templateFile);
             $source = self::readFrontMatter($file);
             $header = $source['header'];
-            $elements[] = [
+            self::assertType($header, 'fragment', $file);
+            $fragments[] = [
                 'file' => $file,
                 'pages' => $header['pages'] ?? 'all',
                 'position' => $header['position'] ?? null,
@@ -420,7 +427,16 @@ final class TemplateDocument extends AbstractDocument
                 'body' => $source['content'],
             ];
         }
-        return $elements;
+        return $fragments;
+    }
+
+    private static function assertType(array $header, string $expected, string $file): void
+    {
+        $type = $header['type'] ?? null;
+        if ($type !== $expected) {
+            $actual = is_scalar($type) ? (string) $type : 'missing';
+            throw new RuntimeException('Expected type "' . $expected . '", got "' . $actual . '": ' . $file);
+        }
     }
 
     private static function readFrontMatter(string $file): array
