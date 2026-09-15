@@ -7,4 +7,5 @@ position:
   width: 35mm
   height: 14mm
 ---
-<div style="text-align:right;">{{ image:meta.company.logo }}</div>
+<style>.logo-following img { width: 32mm; }</style>
+<div class="logo-following" style="text-align:right;">{{ image:meta.company.logo }}</div>

@@ -172,7 +172,7 @@ final class PdfRenderer
         }
 
         if ($regions !== []) {
-            $pdf->page->setNoWriteRegions($regions, 5.0);
+            $pdf->page->setNoWriteRegions($regions, 6.0);
         }
     }
 
