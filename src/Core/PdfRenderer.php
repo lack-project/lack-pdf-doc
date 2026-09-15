@@ -93,7 +93,7 @@ final class PdfRenderer
             width: $followingBox['width'],
         );
 
-        $this->renderPageElements($pdf, $document, $parser);
+        $this->renderPageFragments($pdf, $document, $parser);
         $this->renderPageFooters($pdf, $document, $followingBox['x'], $pageRight);
 
         $form = $document->getForm();
@@ -176,18 +176,18 @@ final class PdfRenderer
         }
     }
 
-    private function renderPageElements(Tcpdf $pdf, AbstractDocument $document, DocumentParser $parser): void
+    private function renderPageFragments(Tcpdf $pdf, AbstractDocument $document, DocumentParser $parser): void
     {
         $pageIds = array_keys($pdf->page->getPages());
-        foreach ($document->pageElements() as $element) {
-            $pages = (string) ($element['pages'] ?? 'all');
-            $html = $parser->resolveResources($document, (string) ($element['html'] ?? ''));
-            $x = $this->lengthToMillimeters((string) ($element['x'] ?? '0mm'));
-            $y = $this->lengthToMillimeters((string) ($element['y'] ?? '0mm'));
-            $width = $this->lengthToMillimeters((string) ($element['width'] ?? '0mm'));
-            $height = $this->lengthToMillimeters((string) ($element['height'] ?? '0mm'));
+        foreach ($document->pageFragments() as $fragment) {
+            $pages = (string) ($fragment['pages'] ?? 'all');
+            $html = $parser->resolveResources($document, (string) ($fragment['html'] ?? ''));
+            $x = $this->lengthToMillimeters((string) ($fragment['x'] ?? '0mm'));
+            $y = $this->lengthToMillimeters((string) ($fragment['y'] ?? '0mm'));
+            $width = $this->lengthToMillimeters((string) ($fragment['width'] ?? '0mm'));
+            $height = $this->lengthToMillimeters((string) ($fragment['height'] ?? '0mm'));
             if ($width <= 0 || $height <= 0) {
-                throw new RuntimeException('Positioned page elements require positive width and height.');
+                throw new RuntimeException('Positioned page fragments require positive width and height.');
             }
 
             foreach ($pageIds as $index => $pageId) {
