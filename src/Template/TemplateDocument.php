@@ -10,6 +10,7 @@ use Lack\PdfDoc\Resource\FontSource;
 use Lack\PdfDoc\Resource\ImageSource;
 use Phore\Markdown\Markdown;
 use RuntimeException;
+use Throwable;
 
 final class TemplateDocument extends AbstractDocument
 {
@@ -50,13 +51,12 @@ final class TemplateDocument extends AbstractDocument
 
     public function fromMarkdownFile(string $file): self
     {
-        self::assertReadableFile($file, 'Markdown document');
-        $source = phore_file($file)->get_front_matter();
-        $header = (array) $source->header;
+        $source = self::readFrontMatter($file, 'Markdown document');
+        $header = $source['header'];
         if ($this->safe) {
             $header = self::normalizeFileReferences($header, $file);
         }
-        return $this->metadata($header)->markdown((string) $source->content);
+        return $this->metadata($header)->markdown($source['content']);
     }
 
     public function metadata(array $metadata): self
@@ -218,22 +218,21 @@ final class TemplateDocument extends AbstractDocument
 
     private static function loadTemplate(string $file, bool $safe, array $stack): array
     {
-        self::assertReadableFile($file, 'Template');
         $realFile = realpath($file) ?: $file;
         if (in_array($realFile, $stack, true)) {
             throw new RuntimeException('Circular template inheritance detected at: ' . $file);
         }
         $stack[] = $realFile;
 
-        $source = phore_file($file)->get_front_matter();
-        $header = (array) $source->header;
+        $source = self::readFrontMatter($file, 'Template');
+        $header = $source['header'];
         $defaults = (array) ($header['defaults'] ?? []);
         $config = (array) ($header['config'] ?? []);
         if ($safe) {
             $defaults = self::normalizeFileReferences($defaults, $file);
             $config = self::normalizeFileReferences($config, $file);
         }
-        $html = (string) $source->content;
+        $html = $source['content'];
         $extends = $header['extends'] ?? null;
 
         if ($extends === null || $extends === '') {
@@ -260,6 +259,43 @@ final class TemplateDocument extends AbstractDocument
             'defaults' => self::mergeRecursive($parent['defaults'], $defaults),
             'config' => self::mergeRecursive($parent['config'], $config),
         ];
+    }
+
+    private static function readFrontMatter(string $file, string $label): array
+    {
+        self::assertReadableFile($file, $label);
+        $source = file_get_contents($file);
+        if ($source === false) {
+            throw new RuntimeException('Unable to read ' . strtolower($label) . ': ' . $file);
+        }
+
+        $openingLength = str_starts_with($source, "---\r\n") ? 5 : (str_starts_with($source, "---\n") ? 4 : 0);
+        if ($openingLength === 0) {
+            return ['header' => [], 'content' => $source];
+        }
+
+        $remaining = substr($source, $openingLength);
+        if (!preg_match('/^---[ \t]*\r?$/m', $remaining, $match, PREG_OFFSET_CAPTURE)) {
+            throw new RuntimeException('Missing closing front matter delimiter in: ' . $file);
+        }
+
+        $delimiter = $match[0][0];
+        $delimiterOffset = $match[0][1];
+        $yaml = substr($remaining, 0, $delimiterOffset);
+        $contentOffset = $delimiterOffset + strlen($delimiter);
+        if (substr($remaining, $contentOffset, 2) === "\r\n") {
+            $contentOffset += 2;
+        } elseif (substr($remaining, $contentOffset, 1) === "\n") {
+            $contentOffset++;
+        }
+
+        try {
+            $header = trim($yaml) === '' ? [] : phore_yaml_decode($yaml);
+        } catch (Throwable $e) {
+            throw new RuntimeException('Invalid YAML front matter in: ' . $file . ' (' . $e->getMessage() . ')', 0, $e);
+        }
+
+        return ['header' => $header, 'content' => substr($remaining, $contentOffset)];
     }
 
     private static function normalizeFileReferences(array $values, string $sourceFile): array
