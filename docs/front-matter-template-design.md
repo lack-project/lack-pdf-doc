@@ -2,20 +2,17 @@
 
 Status: Implementiert über `TemplateDocument` und `TemplateContext`.
 
-## Rollen
+## Begriffe
 
-Die Pipeline trennt drei Verantwortlichkeiten:
+Das Dateimodell kennt drei Rollen. Jede neue Datei trägt ihren Typ explizit im Front Matter.
 
-1. Eine Dokumentdatei (`.md`) enthält `template: file://...`, fachliche Metadaten und optionalen Markdown-Hauptinhalt. Sie enthält keine Seitenpositionen oder Styling-Konfiguration.
-2. Ein Dokument-Template definiert Defaults, Vererbung, den Haupt-Content-Bereich und die importierten Elemente.
-3. Ein Element (`.md`) ist entweder eine absolut positionierte Seitenbox oder zusätzlicher Flow-Content.
+### `type: document`
 
-`TemplateDocument::fromDocumentFile()` lädt diese Kette direkt. Der bisherige Ablauf über `fromTemplateFile()` und `fromMarkdownFile()` bleibt verfügbar.
-
-## Dokument
+Ein Dokument ist eine konkrete fachliche Instanz, zum Beispiel ein Brief oder eine Rechnung. Es enthält den Verweis auf genau ein Template, Metadaten und optional einen Markdown-Body. Ein Dokument definiert keine Seitenpositionen und importiert keine Fragmente.
 
 ```yaml
 ---
+type: document
 template: file://letter.template.html
 recipient:
   name: Erika Mustermann
@@ -27,13 +24,15 @@ showTerms: false
 Normaler Markdown-Inhalt.
 ```
 
-Darstellungsparameter gehören bewusst nicht in das konkrete Dokument. Metadaten können nach dem Laden weiterhin mit `metadata()` überschrieben oder ergänzt werden.
+Verwenden für konkrete Ausgabedokumente. Nicht verwenden, um wiederverwendbares Layout oder gemeinsame Inhalte abzulegen.
 
-## Haupt-Content-Bereich
+### `type: template`
 
-Das Template kann den Haupttext für erste und folgende Seiten unterschiedlich begrenzen:
+Ein Template definiert den Aufbau eines Dokumenttyps. Es kann von einem Parent-Template erben, die Haupt-Content-Bereiche festlegen und Fragmente importieren. Das Template ist die einzige Ebene, die die Abhängigkeiten zwischen Dokumentaufbau und Fragmenten orchestriert.
 
 ```yaml
+---
+type: template
 content:
   first:
     x: 20mm
@@ -45,28 +44,32 @@ content:
     y: 24mm
     width: 170mm
     bottom: 15mm
+fragments:
+  - file://fragments/letterhead-first.md
+  - file://fragments/logo-following.md
+  - file://fragments/footer-first.md
+  - file://fragments/terms.md
+---
+{{ content }}
 ```
 
-`following` bildet den normalen Seitenfluss. Die `first`-Box muss innerhalb dieses Bereichs liegen. Auf Seite 1 reserviert der Renderer die zusätzlichen Kopf-/Fußbereiche mit page-spezifischen No-Write-Regions; automatisch erzeugte Folgeseiten besitzen diese Reservierung nicht und nutzen dadurch den größeren `following`-Bereich.
+Verwenden für Layout, Seitenaufbau und die Zusammenstellung wiederverwendbarer Fragmente. Nicht verwenden für konkrete Rechnungsnummern, Empfänger oder andere Instanzdaten.
 
-## Elemente
+### `type: fragment`
 
-Templates importieren Elemente als Dateien:
+Ein Fragment ist ein wiederverwendbarer Inhaltsbaustein. Es kennt kein Dokument und wählt kein Template. Fragmente importieren keine weiteren Fragmente. Dadurch bleibt die Abhängigkeit immer eindeutig:
 
-```yaml
-elements:
-  - file://elements/letterhead-first.md
-  - file://elements/logo-following.md
-  - file://elements/footer-first.md
-  - file://elements/terms.md
+```text
+document -> template -> fragment
 ```
 
-Ein festes Element beschreibt seine Seite und Box:
+Ein positioniertes Fragment kann beispielsweise Briefkopf, Logo oder Footer enthalten:
 
 ```yaml
 ---
-pages: first
+type: fragment
 format: html
+pages: first
 position:
   x: 120mm
   y: 12mm
@@ -79,14 +82,13 @@ position:
 </div>
 ```
 
-`pages` unterstützt `first`, `following` und `all`. `width` und `height` sind für positionierte Elemente verpflichtend, damit `tc-lib-pdf` den Inhalt als begrenzte absolute `getHTMLCell()`-Box behandelt.
+`pages` unterstützt `first`, `following` und `all`. `width` und `height` sind für positionierte Fragmente verpflichtend, damit `tc-lib-pdf` sie als begrenzte absolute `getHTMLCell()`-Box behandelt.
 
-## Zusätzlicher Flow-Content und Bedingungen
-
-Ein Element ohne `position` kann mit `placement: after` an das Ende des Hauptinhalts gehängt werden:
+Ein Fragment ohne `position` kann zusätzlichen Flow-Content liefern, zum Beispiel AGB:
 
 ```yaml
 ---
+type: fragment
 placement: after
 if: meta.showTerms
 pageBreakBefore: true
@@ -97,11 +99,15 @@ format: markdown
 ...
 ```
 
-`if` referenziert derzeit bewusst nur einen `meta.*`-Pfad. Das Element wird nur angezeigt, wenn der endgültige Wert exakt der boolesche Wert `true` ist. Dadurch bleibt die Bedingungslogik klein und vorhersehbar und kann von außen über `metadata(['showTerms' => true])` gesteuert werden.
+`if` referenziert derzeit bewusst nur einen `meta.*`-Pfad. Das Fragment wird nur angezeigt, wenn der endgültige Wert exakt der boolesche Wert `true` ist. Dadurch kann die Anwendung optionale Inhalte nach dem Laden mit `metadata(['showTerms' => true])` aktivieren.
+
+## Haupt-Content-Bereich
+
+`following` bildet den normalen Seitenfluss. Die `first`-Box muss innerhalb dieses Bereichs liegen. Auf Seite 1 reserviert der Renderer zusätzliche Kopf-/Fußbereiche mit page-spezifischen No-Write-Regions; automatisch erzeugte Folgeseiten besitzen diese Reservierung nicht und nutzen den größeren `following`-Bereich.
 
 ## Platzhalter
 
-Template- und Elementinhalte verwenden dieselben Platzhalter:
+Template- und Fragmentinhalte verwenden dieselben Platzhalter:
 
 - `{{ meta.* }}` — skalarer Wert, HTML-escaped.
 - `{{ markdown:meta.* }}` — Metadatenwert als Markdown.
@@ -110,12 +116,14 @@ Template- und Elementinhalte verwenden dieselben Platzhalter:
 - `{{ content }}` — nur im Dokument-Template; rendert den Markdown-Body des Dokuments.
 - `{{ template }}` — nur für Template-Vererbung.
 
-Damit kann eine Tabelle normal im Hauptfluss über `{{ render:name }}` aus PHP erzeugt werden, während Briefkopf, Logo oder Footer als positionierte Elemente außerhalb des Flows bleiben.
+Damit kann komplexer fachlicher Inhalt über `{{ render:name }}` erzeugt werden, während wiederverwendbare feste oder nachgelagerte Inhalte als Fragmente organisiert bleiben.
 
 ## Beispielaufbau
 
-`examples/templates/page-elements/business.template.html` enthält gemeinsame Firmen-Defaults, Content-Geometrie und Elemente. `letter.template.html` und `invoice.template.html` erben davon. Der Brief liefert normalen Markdown-Content; die Rechnung rendert ihre fachlichen Felder direkt aus Metadaten und funktioniert auch mit leerem Markdown-Body.
+`examples/templates/page-fragments/business.template.html` enthält gemeinsame Firmen-Defaults, Content-Geometrie und Fragmente. `letter.template.html` und `invoice.template.html` erben davon. Der Brief liefert normalen Markdown-Content; die Rechnung rendert ihre fachlichen Felder direkt aus Metadaten und funktioniert auch mit leerem Markdown-Body.
 
-## Safe-Modus
+## Safe-Modus und Typprüfung
 
-Template-Vererbung, Dokument-Template-Referenzen, Elementimporte und relative `file://`-Bildressourcen werden nur bei `safe: true` aufgelöst. Dateifehler bleiben an der Dateisystem-Abstraktionsgrenze und enthalten den tatsächlich verwendeten Dateipfad.
+`TemplateDocument::fromDocumentFile()` verlangt `type: document`. Über `fragments:` importierte Dateien müssen `type: fragment` tragen. Templates des neuen Modells tragen `type: template`; alte Templates ohne Typ bleiben für den bisherigen `fromTemplateFile()`-Ablauf kompatibel.
+
+Template-Vererbung, Dokument-Template-Referenzen, Fragmentimporte und relative `file://`-Bildressourcen werden nur bei `safe: true` aufgelöst. Dateifehler bleiben an der Dateisystem-Abstraktionsgrenze und enthalten den tatsächlich verwendeten Dateipfad.
