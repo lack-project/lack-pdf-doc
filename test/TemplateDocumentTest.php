@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Lack\PdfDoc\Template\TemplateDocument;
+use Phore\FileSystem\Exception\FileNotFoundException;
 use PHPUnit\Framework\TestCase;
 
 final class TemplateDocumentTest extends TestCase
@@ -76,7 +77,7 @@ final class TemplateDocumentTest extends TestCase
     {
         $file = sys_get_temp_dir() . '/lack-pdf-doc-missing-' . bin2hex(random_bytes(6)) . '.html';
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(FileNotFoundException::class);
         $this->expectExceptionMessage($file);
         TemplateDocument::fromTemplateFile($file);
     }
