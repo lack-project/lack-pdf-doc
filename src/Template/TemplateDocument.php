@@ -135,7 +135,7 @@ final class TemplateDocument extends AbstractDocument
         return $this->contentLayout;
     }
 
-    public function pageElements(): array
+    public function pageFragments(): array
     {
         $result = [];
         foreach ($this->fragments as $fragment) {
