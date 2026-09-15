@@ -85,6 +85,12 @@ abstract class AbstractDocument
 
     public function pageFragments(): array
     {
+        return $this->pageElements();
+    }
+
+    /** @deprecated Use pageFragments(). */
+    public function pageElements(): array
+    {
         return [];
     }
 
