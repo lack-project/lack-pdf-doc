@@ -85,16 +85,10 @@ abstract class AbstractDocument
 
     public function pageFragments(): array
     {
-        return $this->pageElements();
-    }
-
-    /** @deprecated Use pageFragments(). */
-    public function pageElements(): array
-    {
         return [];
     }
 
-    abstract public function template(): string;
+    abstract public function renderTemplateName(): string;
     abstract public function templateVariables(): array;
     abstract public function styleVariables(): array;
 }

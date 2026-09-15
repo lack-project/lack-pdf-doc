@@ -1,14 +1,18 @@
 # Front-Matter + Dokument-Templates
 
-Status: Implementiert über `TemplateDocument` und `TemplateContext`.
+Status: Implementiert über `Document`, `TemplateDocument`, `Fragment` und `TemplateContext`.
 
-## Begriffe
+## Rollen und Abhängigkeiten
 
-Das Dateimodell kennt drei Rollen. Jede neue Datei trägt ihren Typ explizit im Front Matter.
+Das Dateimodell kennt drei Rollen. Jede neue Datei trägt ihren Typ explizit im Front Matter, und die Abhängigkeit läuft ausschließlich in eine Richtung:
+
+```text
+document -> template -> fragment
+```
 
 ### `type: document`
 
-Ein Dokument ist eine konkrete fachliche Instanz, zum Beispiel ein Brief oder eine Rechnung. Es enthält den Verweis auf genau ein Template, Metadaten und optional einen Markdown-Body. Ein Dokument definiert keine Seitenpositionen und importiert keine Fragmente.
+Ein Dokument ist eine konkrete fachliche Instanz, zum Beispiel ein Brief oder eine Rechnung. Es enthält genau einen Template-Verweis, Metadaten und optional einen Markdown-Body. Ein Dokument definiert keine Seitenpositionen und importiert keine Fragmente.
 
 ```yaml
 ---
@@ -24,11 +28,17 @@ showTerms: false
 Normaler Markdown-Inhalt.
 ```
 
-Verwenden für konkrete Ausgabedokumente. Nicht verwenden, um wiederverwendbares Layout oder gemeinsame Inhalte abzulegen.
+Geladen wird es direkt als konkretes Dokument:
+
+```php
+$document = Document::fromFile(__DIR__ . '/letter.md', safe: true);
+```
+
+`Document::template()` liefert das zugrunde liegende `TemplateDocument`. Nach dem Laden können Metadaten und Markdown-Hauptinhalt mit `metadata()` und `markdown()` geändert werden.
 
 ### `type: template`
 
-Ein Template definiert den Aufbau eines Dokumenttyps. Es kann von einem Parent-Template erben, die Haupt-Content-Bereiche festlegen und Fragmente importieren. Das Template ist die einzige Ebene, die die Abhängigkeiten zwischen Dokumentaufbau und Fragmenten orchestriert.
+Ein Template definiert den Aufbau eines Dokumenttyps. Es kann von einem Parent-Template erben, Haupt-Content-Bereiche festlegen und Fragmente importieren. Es enthält keine konkrete Rechnungsnummer oder Empfängerinstanz.
 
 ```yaml
 ---
@@ -53,17 +63,21 @@ fragments:
 {{ content }}
 ```
 
-Verwenden für Layout, Seitenaufbau und die Zusammenstellung wiederverwendbarer Fragmente. Nicht verwenden für konkrete Rechnungsnummern, Empfänger oder andere Instanzdaten.
+Ein Template wird unabhängig geladen und kann mehrere Dokumente erzeugen:
+
+```php
+$template = TemplateDocument::fromFile(__DIR__ . '/invoice.template.html', safe: true);
+
+$invoice = $template->createDocument()
+    ->metadata($invoiceData)
+    ->markdown($optionalContent);
+```
 
 ### `type: fragment`
 
-Ein Fragment ist ein wiederverwendbarer Inhaltsbaustein. Es kennt kein Dokument und wählt kein Template. Fragmente importieren keine weiteren Fragmente. Dadurch bleibt die Abhängigkeit immer eindeutig:
+Ein Fragment ist ein wiederverwendbarer Inhaltsbaustein. Es kennt kein Dokument, wählt kein Template und importiert keine weiteren Fragmente. `Fragment::fromFile()` lädt ausschließlich Dateien mit `type: fragment`.
 
-```text
-document -> template -> fragment
-```
-
-Ein positioniertes Fragment kann beispielsweise Briefkopf, Logo oder Footer enthalten:
+Ein positioniertes Fragment kann Briefkopf, Logo oder Footer enthalten:
 
 ```yaml
 ---
@@ -99,7 +113,7 @@ format: markdown
 ...
 ```
 
-`if` referenziert derzeit bewusst nur einen `meta.*`-Pfad. Das Fragment wird nur angezeigt, wenn der endgültige Wert exakt der boolesche Wert `true` ist. Dadurch kann die Anwendung optionale Inhalte nach dem Laden mit `metadata(['showTerms' => true])` aktivieren.
+`if` referenziert derzeit bewusst nur einen `meta.*`-Pfad. Das Fragment wird nur angezeigt, wenn der endgültige Wert exakt der boolesche Wert `true` ist.
 
 ## Haupt-Content-Bereich
 
@@ -113,17 +127,25 @@ Template- und Fragmentinhalte verwenden dieselben Platzhalter:
 - `{{ markdown:meta.* }}` — Metadatenwert als Markdown.
 - `{{ image:meta.* }}` — Bildressource.
 - `{{ render:name }}` — registrierter PHP-Renderer.
-- `{{ content }}` — nur im Dokument-Template; rendert den Markdown-Body des Dokuments.
+- `{{ content }}` — Markdown-Hauptinhalt des konkreten Dokuments.
 - `{{ template }}` — nur für Template-Vererbung.
 
-Damit kann komplexer fachlicher Inhalt über `{{ render:name }}` erzeugt werden, während wiederverwendbare feste oder nachgelagerte Inhalte als Fragmente organisiert bleiben.
+## Lade-API
+
+Die Typen bilden die Dateien direkt ab:
+
+```text
+Document::fromFile()         -> type: document
+TemplateDocument::fromFile() -> type: template
+Fragment::fromFile()         -> type: fragment
+```
+
+Für bestehende Aufrufer bleibt `TemplateDocument::fromTemplateFile(...)->fromMarkdownFile(...)` als Legacy-Einstieg erhalten. Neue Implementierungen sollen die typisierte `fromFile()`-API verwenden.
 
 ## Beispielaufbau
 
-`examples/templates/page-fragments/business.template.html` enthält gemeinsame Firmen-Defaults, Content-Geometrie und Fragmente. `letter.template.html` und `invoice.template.html` erben davon. Der Brief liefert normalen Markdown-Content; die Rechnung rendert ihre fachlichen Felder direkt aus Metadaten und funktioniert auch mit leerem Markdown-Body.
+`examples/templates/04-letter-page-fragments.php` zeigt ein vollständiges Dokument über `Document::fromFile()`. `examples/templates/05-invoice-page-fragments.php` lädt dagegen nur das Rechnungstemplate und erzeugt mit `createDocument()` eine programmatisch befüllte Rechnung.
 
 ## Safe-Modus und Typprüfung
 
-`TemplateDocument::fromDocumentFile()` verlangt `type: document`. Über `fragments:` importierte Dateien müssen `type: fragment` tragen. Templates des neuen Modells tragen `type: template`; alte Templates ohne Typ bleiben für den bisherigen `fromTemplateFile()`-Ablauf kompatibel.
-
-Template-Vererbung, Dokument-Template-Referenzen, Fragmentimporte und relative `file://`-Bildressourcen werden nur bei `safe: true` aufgelöst. Dateifehler bleiben an der Dateisystem-Abstraktionsgrenze und enthalten den tatsächlich verwendeten Dateipfad.
+`Document::fromFile()` verlangt `type: document`, `TemplateDocument::fromFile()` verlangt `type: template`, und `Fragment::fromFile()` verlangt `type: fragment`. Template-Vererbung, Dokument-Template-Referenzen, Fragmentimporte und relative `file://`-Bildressourcen werden nur bei `safe: true` aufgelöst. Dateifehler bleiben an der Dateisystem-Abstraktionsgrenze und enthalten den tatsächlich verwendeten Dateipfad.

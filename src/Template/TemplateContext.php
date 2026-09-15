@@ -6,7 +6,7 @@ namespace Lack\PdfDoc\Template;
 
 final class TemplateContext
 {
-    public function __construct(private readonly TemplateDocument $document) {}
+    public function __construct(private readonly Document $document) {}
 
     public function meta(string $path): mixed
     {

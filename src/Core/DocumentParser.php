@@ -14,11 +14,12 @@ final class DocumentParser
 
     public function parse(AbstractDocument $document): string
     {
-        $dir = rtrim($this->templateDir, '/') . '/' . $document->template();
+        $templateName = $document->renderTemplateName();
+        $dir = rtrim($this->templateDir, '/') . '/' . $templateName;
         $html = @file_get_contents($dir . '/document.html');
         $css = @file_get_contents($dir . '/document.css');
         if ($html === false || $css === false) {
-            throw new RuntimeException('PDF template not found: ' . $document->template());
+            throw new RuntimeException('PDF template not found: ' . $templateName);
         }
 
         foreach ($document->styleVariables() as $name => $value) {

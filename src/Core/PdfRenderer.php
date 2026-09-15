@@ -42,7 +42,7 @@ final class PdfRenderer
             'width' => 210.0
                 - $this->lengthToMillimeters((string) ($style['pageLeft'] ?? '15mm'))
                 - $this->lengthToMillimeters((string) ($style['pageRight'] ?? '15mm')),
-            'bottom' => $this->lengthToMillimeters((string) ($style['pageBottom'] ?? ($document->template() === 'letter' ? '20mm' : '15mm'))),
+            'bottom' => $this->lengthToMillimeters((string) ($style['pageBottom'] ?? ($document->renderTemplateName() === 'letter' ? '20mm' : '15mm'))),
         ];
         $layout = $document->contentLayout();
         $followingBox = $this->normalizeContentBox((array) ($layout['following'] ?? []), $defaultBox);
@@ -222,7 +222,7 @@ final class PdfRenderer
         float $pageLeft,
         float $pageRight,
     ): void {
-        if ($document->template() !== 'letter') {
+        if ($document->renderTemplateName() !== 'letter') {
             return;
         }
 

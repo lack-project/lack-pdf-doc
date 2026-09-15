@@ -19,6 +19,11 @@ final class SimpleDocument extends AbstractDocument
         return 'simple';
     }
 
+    public function renderTemplateName(): string
+    {
+        return $this->template();
+    }
+
     public function templateVariables(): array
     {
         return $this->getDocumentVariables();

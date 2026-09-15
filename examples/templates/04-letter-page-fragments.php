@@ -1,15 +1,14 @@
 <?php
 
-use Lack\PdfDoc\Template\TemplateDocument;
+use Lack\PdfDoc\Template\Document;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-$document = TemplateDocument::fromDocumentFile(
+$document = Document::fromFile(
     __DIR__ . '/page-fragments/letter.md',
     safe: true,
 );
 
-// Programmatisch kann der Aufrufer optionale Fragmente ein- oder ausblenden.
 $document->metadata(['showTerms' => true]);
 
 file_put_contents(__DIR__ . '/letter-page-fragments.pdf', $document->toPdf());
