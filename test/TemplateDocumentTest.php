@@ -13,7 +13,7 @@ final class TemplateDocumentTest extends TestCase
         mkdir($dir, 0777, true);
 
         try {
-            file_put_contents($dir . '/base.template.html', "---\ndefaults:\n  company:\n    name: Example GmbH\nconfig:\n  fonts:\n    body: builtin://helvetica\n---\n<main>{{ meta.company.name }} {{ template }}</main>");
+            file_put_contents($dir . '/base.template.html', "---\ndefaults:\n  company:\n    name: Example GmbH\nconfig:\n  fonts:\n    body: builtin://helvetica\n  layout:\n    pageLeft: 20mm\n    pageRight: 18mm\n    pageTop: 12mm\n    pageBottom: 22mm\n---\n<main>{{ meta.company.name }} {{ template }}</main>");
             file_put_contents($dir . '/child.template.html', "---\nextends: file://base.template.html\ndefaults:\n  title: Default title\n---\n<h1>{{ meta.title }}</h1>{{ content }}");
             file_put_contents($dir . '/document.md', "---\ntitle: Custom title\n---\nHello **World**");
 
@@ -26,6 +26,10 @@ final class TemplateDocumentTest extends TestCase
             self::assertStringContainsString('Example GmbH', $html);
             self::assertStringContainsString('<h1>Custom title</h1>', $html);
             self::assertStringContainsString('<strong>World</strong>', $html);
+            self::assertSame('20mm', $document->styleVariables()['pageLeft']);
+            self::assertSame('18mm', $document->styleVariables()['pageRight']);
+            self::assertSame('12mm', $document->styleVariables()['pageTop']);
+            self::assertSame('22mm', $document->styleVariables()['pageBottom']);
         } finally {
             @unlink($dir . '/document.md');
             @unlink($dir . '/child.template.html');
