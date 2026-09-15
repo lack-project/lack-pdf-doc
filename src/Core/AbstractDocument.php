@@ -83,7 +83,7 @@ abstract class AbstractDocument
         return [];
     }
 
-    public function pageElements(): array
+    public function pageFragments(): array
     {
         return [];
     }
