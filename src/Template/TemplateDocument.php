@@ -22,6 +22,8 @@ final class TemplateDocument extends AbstractDocument
         private readonly array $templateDefaults,
         private readonly array $config,
         private readonly array $metadataOverrides,
+        private readonly array $contentLayout,
+        private readonly array $elements,
     ) {
         $this->configureFonts();
     }
@@ -39,7 +41,43 @@ final class TemplateDocument extends AbstractDocument
             $loaded['defaults'],
             self::mergeRecursive($loaded['config'], $configOverrides),
             $metadataOverrides,
+            $loaded['contentLayout'],
+            $loaded['elements'],
         );
+    }
+
+    public static function fromDocumentFile(
+        string $file,
+        bool $safe = false,
+        array $metadataOverrides = [],
+        array $configOverrides = [],
+    ): self {
+        $source = self::readFrontMatter($file);
+        $header = $source['header'];
+        $template = $header['template'] ?? null;
+        if (!is_string($template) || $template === '') {
+            throw new RuntimeException('Document front matter is missing template in: ' . $file);
+        }
+        if (!$safe) {
+            throw new RuntimeException('Document template references require safe mode: ' . $file);
+        }
+        if (!str_starts_with($template, 'file://')) {
+            throw new RuntimeException('Unsupported document template reference in ' . $file . ': ' . $template);
+        }
+
+        unset($header['template']);
+        if ($safe) {
+            $header = self::normalizeFileReferences($header, $file);
+        }
+
+        return self::fromTemplateFile(
+            self::resolveFileReference($template, $file),
+            safe: $safe,
+            metadataOverrides: $metadataOverrides,
+            configOverrides: $configOverrides,
+        )
+            ->metadata($header)
+            ->markdown($source['content']);
     }
 
     public function fromMarkdownFile(string $file): self
@@ -69,12 +107,10 @@ final class TemplateDocument extends AbstractDocument
 
     public function meta(string $path): mixed
     {
-        $value = $this->resolvedMetadata();
-        foreach (explode('.', $path) as $part) {
-            if (!is_array($value) || !array_key_exists($part, $value)) {
-                throw new RuntimeException('Missing template metadata value: ' . $path);
-            }
-            $value = $value[$part];
+        $found = false;
+        $value = $this->findMeta($path, $found);
+        if (!$found) {
+            throw new RuntimeException('Missing template metadata value: ' . $path);
         }
         return $value;
     }
@@ -90,6 +126,31 @@ final class TemplateDocument extends AbstractDocument
     public function config(): array
     {
         return $this->config;
+    }
+
+    public function contentLayout(): array
+    {
+        return $this->contentLayout;
+    }
+
+    public function pageElements(): array
+    {
+        $result = [];
+        foreach ($this->elements as $element) {
+            if (!$this->elementEnabled($element) || !isset($element['position'])) {
+                continue;
+            }
+            $position = (array) $element['position'];
+            $result[] = [
+                'pages' => (string) ($element['pages'] ?? 'all'),
+                'x' => (string) ($position['x'] ?? '0mm'),
+                'y' => (string) ($position['y'] ?? '0mm'),
+                'width' => (string) ($position['width'] ?? '0mm'),
+                'height' => (string) ($position['height'] ?? '0mm'),
+                'html' => $this->renderElement($element),
+            ];
+        }
+        return $result;
     }
 
     public function template(): string
@@ -131,9 +192,38 @@ final class TemplateDocument extends AbstractDocument
 
     private function renderTemplate(): string
     {
-        $html = preg_replace_callback('/\{\{\s*(.*?)\s*\}\}/s', function (array $match): string {
+        $html = $this->renderMarkup($this->templateHtml, true);
+        foreach ($this->elements as $element) {
+            if (!$this->elementEnabled($element) || ($element['placement'] ?? null) !== 'after') {
+                continue;
+            }
+            $fragment = $this->renderElement($element);
+            if (($element['pageBreakBefore'] ?? false) === true) {
+                $fragment = '<div style="page-break-before: always;">' . $fragment . '</div>';
+            }
+            $html .= $fragment;
+        }
+        return $html;
+    }
+
+    private function renderElement(array $element): string
+    {
+        $body = $this->renderMarkup((string) ($element['body'] ?? ''), false);
+        return match ((string) ($element['format'] ?? 'markdown')) {
+            'markdown' => Markdown::toHtml($body),
+            'html' => $body,
+            default => throw new RuntimeException('Unsupported template element format: ' . (string) $element['format']),
+        };
+    }
+
+    private function renderMarkup(string $markup, bool $allowContent): string
+    {
+        $html = preg_replace_callback('/\{\{\s*(.*?)\s*\}\}/s', function (array $match) use ($allowContent): string {
             $expression = trim($match[1]);
             if ($expression === 'content') {
+                if (!$allowContent) {
+                    throw new RuntimeException('{{ content }} is only allowed in the document template.');
+                }
                 return Markdown::toHtml($this->getMarkdown());
             }
             if ($expression === 'template') {
@@ -161,8 +251,36 @@ final class TemplateDocument extends AbstractDocument
                 return $rendered;
             }
             throw new RuntimeException('Unsupported template placeholder: ' . $expression);
-        }, $this->templateHtml);
-        return $html ?? throw new RuntimeException('Unable to render template document.');
+        }, $markup);
+        return $html ?? throw new RuntimeException('Unable to render template markup.');
+    }
+
+    private function elementEnabled(array $element): bool
+    {
+        $condition = $element['if'] ?? null;
+        if ($condition === null || $condition === '') {
+            return true;
+        }
+        if (!is_string($condition) || !str_starts_with($condition, 'meta.')) {
+            throw new RuntimeException('Element if condition must reference meta.*');
+        }
+        $found = false;
+        $value = $this->findMeta(substr($condition, 5), $found);
+        return $found && $value === true;
+    }
+
+    private function findMeta(string $path, bool &$found): mixed
+    {
+        $value = $this->resolvedMetadata();
+        foreach (explode('.', $path) as $part) {
+            if (!is_array($value) || !array_key_exists($part, $value)) {
+                $found = false;
+                return null;
+            }
+            $value = $value[$part];
+        }
+        $found = true;
+        return $value;
     }
 
     private function renderImage(string $path): string
@@ -225,6 +343,8 @@ final class TemplateDocument extends AbstractDocument
         $header = $source['header'];
         $defaults = (array) ($header['defaults'] ?? []);
         $config = (array) ($header['config'] ?? []);
+        $contentLayout = (array) ($header['content'] ?? []);
+        $elements = self::loadElements($header['elements'] ?? [], $file, $safe);
         if ($safe) {
             $defaults = self::normalizeFileReferences($defaults, $file);
             $config = self::normalizeFileReferences($config, $file);
@@ -233,7 +353,13 @@ final class TemplateDocument extends AbstractDocument
         $extends = $header['extends'] ?? null;
 
         if ($extends === null || $extends === '') {
-            return ['html' => $html, 'defaults' => $defaults, 'config' => $config];
+            return [
+                'html' => $html,
+                'defaults' => $defaults,
+                'config' => $config,
+                'contentLayout' => $contentLayout,
+                'elements' => $elements,
+            ];
         }
         if (!is_string($extends)) {
             throw new RuntimeException('Template extends must be a string in: ' . $file);
@@ -255,7 +381,46 @@ final class TemplateDocument extends AbstractDocument
             'html' => str_replace('{{ template }}', $html, $parent['html']),
             'defaults' => self::mergeRecursive($parent['defaults'], $defaults),
             'config' => self::mergeRecursive($parent['config'], $config),
+            'contentLayout' => self::mergeRecursive($parent['contentLayout'], $contentLayout),
+            'elements' => array_merge($parent['elements'], $elements),
         ];
+    }
+
+    private static function loadElements(mixed $elementRefs, string $templateFile, bool $safe): array
+    {
+        if ($elementRefs === null || $elementRefs === []) {
+            return [];
+        }
+        if (is_string($elementRefs)) {
+            $elementRefs = [$elementRefs];
+        }
+        if (!is_array($elementRefs)) {
+            throw new RuntimeException('Template elements must be a file reference list in: ' . $templateFile);
+        }
+        if (!$safe) {
+            throw new RuntimeException('Template element imports require safe mode: ' . $templateFile);
+        }
+
+        $elements = [];
+        foreach ($elementRefs as $reference) {
+            if (!is_string($reference) || !str_starts_with($reference, 'file://')) {
+                throw new RuntimeException('Template element must be a file:// reference in: ' . $templateFile);
+            }
+            $file = self::resolveFileReference($reference, $templateFile);
+            $source = self::readFrontMatter($file);
+            $header = $source['header'];
+            $elements[] = [
+                'file' => $file,
+                'pages' => $header['pages'] ?? 'all',
+                'position' => $header['position'] ?? null,
+                'placement' => $header['placement'] ?? null,
+                'if' => $header['if'] ?? null,
+                'pageBreakBefore' => $header['pageBreakBefore'] ?? false,
+                'format' => $header['format'] ?? 'markdown',
+                'body' => $source['content'],
+            ];
+        }
+        return $elements;
     }
 
     private static function readFrontMatter(string $file): array

@@ -38,6 +38,11 @@ final class DocumentParser
         $html = preg_replace_callback('/\{\{([a-zA-Z0-9_.-]+)\}\}/', static fn(array $m): string => (string) ($values[$m[1]] ?? ''), $html)
             ?? throw new RuntimeException('Unable to render PDF template.');
 
+        return $this->resolveResources($document, $html);
+    }
+
+    public function resolveResources(AbstractDocument $document, string $html): string
+    {
         if (preg_match('#<img\b[^>]*\bsrc=["\'](?!image:[a-zA-Z0-9_.-]+["\'])#i', $html)) {
             throw new RuntimeException('Images in document markup must reference a registered image:<alias>.');
         }
