@@ -1,10 +1,10 @@
-# Entwurf: erbbares Front-Matter + HTML-Template
+# Front-Matter + HTML-Templates
 
-Status: Entwurf, noch nicht Teil der produktiven API.
+Status: Implementiert über `TemplateDocument` und `TemplateContext`.
 
 ## Zielbild
 
-Die Zielarchitektur verwendet `TemplateDocument` als allgemeinen Dokumenttyp. Ein Brief, Bewerberdossier oder anderes Dokument unterscheidet sich nur noch durch Template und Daten. Eine eigene `LetterDocument`-Rendering-Pipeline ist damit langfristig nicht nötig; ein Standardbrief wird selbst als mitgeliefertes Template modelliert.
+Die Template-Pipeline verwendet `TemplateDocument` als allgemeinen Dokumenttyp. Ein Brief, Bewerberdossier oder anderes Dokument unterscheidet sich durch Template und Daten. Die bestehende Letter-API bleibt parallel bestehen und wird durch diese Pipeline nicht entfernt.
 
 Sowohl Templates als auch konkrete Dokumente können YAML-Front-Matter besitzen. Für das Parsen wird direkt `phore/filesystem` verwendet: `PhoreFile::get_front_matter()` liefert `header` und `content`.
 
@@ -82,18 +82,18 @@ Der restliche Briefkopf bleibt unverändert geerbt.
 
 ## Platzhalter
 
-Der Entwurf unterscheidet folgende Platzhalter:
+Die Pipeline unterstützt folgende Platzhalter:
 
 - `{{ meta.candidate.firstName }}` — skalarer Metadatenwert, HTML-escaped.
 - `{{ markdown:meta.salutation }}` — Metadatenwert wird als Markdown gerendert.
-- `{{ image:meta.company.logo }}` — Bildressource aus einem Metadatenpfad; Data-URL oder bereits aufgelöste Ressource.
+- `{{ image:meta.company.logo }}` — Bildressource aus einem Metadatenpfad; Data-URL, `file://` im Safe-Modus oder registrierter `image:`-Alias.
 - `{{ template }}` — HTML-Body des erbenden Child-Templates.
 - `{{ content }}` — gerenderter Markdown-Hauptinhalt des konkreten Dokuments.
 - `{{ render:candidateTable }}` — registrierter Renderer-Callback für komplexes HTML wie Tabellen.
 
-Ein fehlender Pflichtwert, Renderer oder Parent soll eine Exception auslösen statt still leeres HTML zu erzeugen.
+Ein fehlender Pflichtwert, Renderer oder Parent löst eine Exception aus statt still leeres HTML zu erzeugen.
 
-## Vorgeschlagener Standardablauf
+## Standardablauf
 
 ```php
 $document = TemplateDocument::fromTemplateFile(
@@ -132,22 +132,18 @@ Callbacks sind durch `render:` klar von normalen Datenwerten getrennt.
 
 `TemplateDocument::fromTemplateFile()` ist standardmäßig `safe: false`.
 
-Im Standardmodus wird die angegebene Template-Datei gelesen und geparst, aber relative `file://`-Referenzen aus Template-Front-Matter werden nicht automatisch geöffnet. Parent-Templates, Config-Dateien und Ressourcen müssen dann explizit von der Anwendung bereitgestellt werden.
+Im Standardmodus wird die angegebene Template-Datei gelesen und geparst, aber `extends` und `file://`-Bildressourcen werden nicht automatisch geöffnet.
 
-Mit `safe: true` erklärt die Anwendung die Template-Kette als vertrauenswürdig. Dann dürfen relative Referenzen wie `file://letter-defaults.template.html` oder `file://../letter/assets/company-logo.png` relativ zur jeweils referenzierenden Template-Datei aufgelöst werden. `file:///...` bleibt ein absoluter Pfad.
+Mit `safe: true` erklärt die Anwendung die Template-Kette als vertrauenswürdig. Dann dürfen relative Referenzen wie `file://letter-defaults.template.html` oder `file://../letter/assets/company-logo.png` relativ zur jeweils referenzierenden Datei aufgelöst werden. `file:///...` bleibt ein absoluter Pfad.
 
-Die Auflösung geschieht ausschließlich in der Template-/Config-Ladeschicht. tc-lib-pdf selbst erhält weiterhin keine frei auflösbaren Datei- oder Netzwerkpfade.
+Dateinahe Fehler nennen den tatsächlich verwendeten Dateipfad in der Exception. Die Auflösung geschieht ausschließlich in der Template-Ladeschicht; tc-lib-pdf selbst erhält weiterhin keine frei auflösbaren Datei- oder Netzwerkpfade.
 
 ## Rolle der bisherigen Letter-Klassen
 
-Im Zielbild ist `LetterDocument` nicht mehr nötig. Ein Standardbrief ist ein gebündeltes Template, das dieselbe `TemplateDocument`-Pipeline wie alle anderen Dokumenttypen benutzt.
-
-`LetterConfig`, `LetterLayout` und `LetterFooter` können während der Migration intern als bestehende Config-Strukturen weiterverwendet werden. Langfristig sollte ihre öffentliche Rolle in eine generische Template-/Config-Struktur übergehen, damit Brief-spezifische Klassen keine zweite API-Welt bilden.
-
-Die vorhandenen produktiven Letter-Klassen bleiben bis zur Implementierung der generischen Template-Pipeline bestehen; dieser Abschnitt beschreibt das Zielbild und entfernt sie noch nicht aus der produktiven API.
+Die generische Template-Pipeline ergänzt die vorhandene `LetterDocument`-API. `LetterConfig`, `LetterLayout`, `LetterFooter` und `LetterDocument` bleiben bestehen; eine spätere Migration oder Entfernung ist nicht Bestandteil dieser Implementierung.
 
 ## Sicherheits- und Rendering-Regeln
 
 Skalare Metadaten werden standardmäßig escaped. Rohes HTML darf nicht über normale Metadaten-Platzhalter eingeschleust werden. HTML entsteht nur aus den kontrollierten Template-Bodies, Markdown-Rendering oder registrierten Renderer-Callbacks.
 
-Dateizugriffe aus Template-Front-Matter werden nur bei explizitem `safe: true` automatisch relativ aufgelöst. Ressourcen werden beim Laden in interne Ressourcen überführt; der Renderer selbst bleibt vom Dateisystem und Netzwerk isoliert.
+Dateizugriffe aus Template-Front-Matter werden nur bei explizitem `safe: true` automatisch relativ aufgelöst. Bildressourcen werden beim Rendern in interne `ImageSource`-Ressourcen überführt; der PDF-Renderer selbst bleibt vom Dateisystem und Netzwerk isoliert.
