@@ -6,7 +6,7 @@ Status: Implementiert über `TemplateDocument` und `TemplateContext`.
 
 Die Template-Pipeline verwendet `TemplateDocument` als allgemeinen Dokumenttyp. Ein Brief, Bewerberdossier oder anderes Dokument unterscheidet sich durch Template und Daten. Die bestehende Letter-API bleibt parallel bestehen und wird durch diese Pipeline nicht entfernt.
 
-Sowohl Templates als auch konkrete Dokumente können YAML-Front-Matter besitzen. Für das Parsen wird direkt `phore/filesystem` verwendet: `PhoreFile::get_front_matter()` liefert `header` und `content`.
+Sowohl Templates als auch konkrete Dokumente können YAML-Front-Matter besitzen. `TemplateDocument` liest die Datei selbst, trennt Front Matter vom Body und dekodiert den YAML-Header mit `phore_yaml_decode()`. Dateien ohne Front Matter werden als reiner Body akzeptiert.
 
 - Beim Template ist `header` die Template-/Config-Metadatenebene und `content` der HTML-Template-Body.
 - Beim konkreten Dokument ist `header` die Dokument-Metadatenebene und `content` der Markdown-Hauptinhalt.
@@ -105,7 +105,7 @@ $document = TemplateDocument::fromTemplateFile(
 $pdf = $document->toPdf();
 ```
 
-`fromMarkdownFile()` verwendet intern `phore_file($file)->get_front_matter()`. Der Header wird zu Dokumentmetadaten; der Body wird Markdown-Hauptinhalt.
+`fromMarkdownFile()` liest und validiert die Datei, dekodiert den optionalen YAML-Header und übernimmt den Body als Markdown-Hauptinhalt. Dateibezogene Fehler enthalten den betroffenen Dateinamen.
 
 Ein Dokument mit abweichendem Logo braucht keinen anderen PHP-Code. Es verwendet dieselbe Template-Kette und überschreibt `company.logo` nur in seinem Front Matter.
 
