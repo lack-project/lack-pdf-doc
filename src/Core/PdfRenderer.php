@@ -37,8 +37,8 @@ final class PdfRenderer
         $style = $document->styleVariables();
         $pageLeft = $this->lengthToMillimeters((string) ($style['pageLeft'] ?? '15mm'));
         $pageRight = $this->lengthToMillimeters((string) ($style['pageRight'] ?? '15mm'));
-        $pageTop = 15.0;
-        $pageBottom = $document->template() === 'letter' ? 20.0 : 15.0;
+        $pageTop = $this->lengthToMillimeters((string) ($style['pageTop'] ?? '15mm'));
+        $pageBottom = $this->lengthToMillimeters((string) ($style['pageBottom'] ?? ($document->template() === 'letter' ? '20mm' : '15mm')));
         $pdf->addPage([
             'margin' => [
                 'PL' => $pageLeft,
@@ -74,7 +74,7 @@ final class PdfRenderer
         $pdf->addHTMLCell(
             html: $html,
             posx: $pageLeft,
-            posy: 15,
+            posy: $pageTop,
             width: 210 - $pageLeft - $pageRight,
         );
 

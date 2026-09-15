@@ -9,6 +9,19 @@ defaults:
 
     **Example GmbH**
 ---
+<style>
+  .letter-recipient { width: 90mm; min-height: 42mm; }
+  .letter-recipient table { width: 100%; border-collapse: collapse; }
+  .letter-recipient th { width: 24mm; text-align: left; vertical-align: top; font-weight: normal; padding: 0 3mm 1.5mm 0; }
+  .letter-recipient td { vertical-align: top; padding: 0 0 1.5mm; }
+  .letter-subject { margin: 8mm 0 7mm; }
+  .letter-salutation { margin-bottom: 4mm; }
+  .letter-content h1 { font-size: 18pt; margin: 0 0 7mm; page-break-after: avoid; }
+  .letter-content h2 { font-size: 14pt; margin: 7mm 0 3mm; page-break-after: avoid; }
+  .letter-content h3 { page-break-after: avoid; }
+  .letter-content p { margin: 0 0 4mm; }
+  .letter-closing { margin-top: 7mm; }
+</style>
 <section class="letter-recipient">
   <table>
     <tr><th>Name</th><td>{{ meta.recipient.name }}</td></tr>

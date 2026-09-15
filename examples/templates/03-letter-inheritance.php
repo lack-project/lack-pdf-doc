@@ -4,7 +4,6 @@ use Lack\PdfDoc\Template\TemplateDocument;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-// Entwurfsbeispiel: TemplateDocument ist noch nicht implementiert.
 // safe: true erlaubt der vertrauenswürdigen Template-Kette relative file://-Ressourcen.
 $template = TemplateDocument::fromTemplateFile(
     __DIR__ . '/letter.template.html',

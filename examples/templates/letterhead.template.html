@@ -1,13 +1,26 @@
 ---
 extends: file://letter-defaults.template.html
 ---
+<style>
+  .letterhead { width: 100%; min-height: 36mm; }
+  .letterhead-table { width: 100%; border-collapse: collapse; }
+  .letterhead-company { width: 55%; vertical-align: top; font-size: 9pt; line-height: 1.3; }
+  .letterhead-logo { width: 45%; vertical-align: top; text-align: right; }
+  .letterhead-logo img { width: 42mm; }
+  .letterhead-document { margin-top: 8mm; }
+  .letterhead-footer { margin-top: 12mm; padding-top: 3mm; border-top: 0.2mm solid #bbb; font-size: 8pt; }
+</style>
 <header class="letterhead">
-  <div class="letterhead-logo">{{ image:meta.company.logo }}</div>
-  <div class="letterhead-company">
-    <strong>{{ meta.company.name }}</strong><br>
-    {{ meta.company.address.street }}<br>
-    {{ meta.company.address.postalCode }} {{ meta.company.address.city }}
-  </div>
+  <table class="letterhead-table">
+    <tr>
+      <td class="letterhead-company">
+        <strong>{{ meta.company.name }}</strong><br>
+        {{ meta.company.address.street }}<br>
+        {{ meta.company.address.postalCode }} {{ meta.company.address.city }}
+      </td>
+      <td class="letterhead-logo">{{ image:meta.company.logo }}</td>
+    </tr>
+  </table>
 </header>
 
 <div class="letterhead-document">

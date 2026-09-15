@@ -5,10 +5,6 @@ use Lack\PdfDoc\Template\TemplateDocument;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-// Entwurfsbeispiel: TemplateDocument/TemplateContext/fromTemplateFile()/metadata()
-// sind noch nicht implementiert. Front Matter wird direkt über phore/filesystem gelesen.
-$source = phore_file(__DIR__ . '/candidate-dossier.md')->get_front_matter();
-
 $document = TemplateDocument::fromTemplateFile(
     __DIR__ . '/candidate-dossier.template.html',
     safe: true,
@@ -35,8 +31,7 @@ $document = TemplateDocument::fromTemplateFile(
         }
         return $html . '</table>';
     })
-    ->metadata((array) $source->header)
-    ->markdown($source->content);
+    ->fromMarkdownFile(__DIR__ . '/candidate-dossier.md');
 
 $pdf = $document->toPdf();
 file_put_contents(__DIR__ . '/candidate-dossier-front-matter.pdf', $pdf);
