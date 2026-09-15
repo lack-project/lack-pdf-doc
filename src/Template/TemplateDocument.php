@@ -31,6 +31,33 @@ final class TemplateDocument extends AbstractDocument
         $this->configureFonts();
     }
 
+    public static function fromTemplateFile(
+        string $file,
+        bool $safe = false,
+        array $metadataOverrides = [],
+        array $configOverrides = [],
+    ): self {
+        $loaded = self::loadTemplate($file, $safe, []);
+        return new self(
+            $loaded['html'],
+            $safe,
+            $loaded['defaults'],
+            self::mergeRecursive($loaded['config'], $configOverrides),
+            $metadataOverrides,
+        );
+    }
+
+    public function fromMarkdownFile(string $file): self
+    {
+        self::assertReadableFile($file, 'Markdown document');
+        $source = phore_file($file)->get_front_matter();
+        $header = (array) $source->header;
+        if ($this->safe) {
+            $header = self::normalizeFileReferences($header, $file);
+        }
+        return $this->metadata($header)->markdown((string) $source->content);
+    }
+
     public function metadata(array $metadata): self
     {
         $this->documentMetadata = self::mergeRecursive($this->documentMetadata, $metadata);
@@ -111,6 +138,9 @@ final class TemplateDocument extends AbstractDocument
             if ($expression === 'content') {
                 return Markdown::toHtml($this->getMarkdown());
             }
+            if ($expression === 'template') {
+                throw new RuntimeException('Unresolved {{ template }} placeholder in template chain.');
+            }
             if (str_starts_with($expression, 'meta.')) {
                 return htmlspecialchars($this->scalar($this->meta(substr($expression, 5)), $expression), ENT_QUOTES);
             }
@@ -131,7 +161,6 @@ final class TemplateDocument extends AbstractDocument
             }
             throw new RuntimeException('Unsupported template placeholder: ' . $expression);
         }, $this->templateHtml);
-
         return $html ?? throw new RuntimeException('Unable to render template document.');
     }
 
@@ -141,6 +170,98 @@ final class TemplateDocument extends AbstractDocument
             return (string) $value;
         }
         throw new RuntimeException('Template value must be scalar: ' . $expression);
+    }
+
+    private static function loadTemplate(string $file, bool $safe, array $stack): array
+    {
+        self::assertReadableFile($file, 'Template');
+        $realFile = realpath($file) ?: $file;
+        if (in_array($realFile, $stack, true)) {
+            throw new RuntimeException('Circular template inheritance detected at: ' . $file);
+        }
+        $stack[] = $realFile;
+
+        $source = phore_file($file)->get_front_matter();
+        $header = (array) $source->header;
+        $defaults = (array) ($header['defaults'] ?? []);
+        $config = (array) ($header['config'] ?? []);
+        if ($safe) {
+            $defaults = self::normalizeFileReferences($defaults, $file);
+            $config = self::normalizeFileReferences($config, $file);
+        }
+        $html = (string) $source->content;
+        $extends = $header['extends'] ?? null;
+
+        if ($extends === null || $extends === '') {
+            return ['html' => $html, 'defaults' => $defaults, 'config' => $config];
+        }
+        if (!is_string($extends)) {
+            throw new RuntimeException('Template extends must be a string in: ' . $file);
+        }
+        if (!$safe) {
+            throw new RuntimeException('Template inheritance through file references requires safe mode: ' . $file);
+        }
+        if (!str_starts_with($extends, 'file://')) {
+            throw new RuntimeException('Unsupported template parent reference in ' . $file . ': ' . $extends);
+        }
+
+        $parentFile = self::resolveFileReference($extends, $file);
+        $parent = self::loadTemplate($parentFile, $safe, $stack);
+        if (!str_contains($parent['html'], '{{ template }}')) {
+            throw new RuntimeException('Parent template is missing {{ template }} placeholder: ' . $parentFile);
+        }
+
+        return [
+            'html' => str_replace('{{ template }}', $html, $parent['html']),
+            'defaults' => self::mergeRecursive($parent['defaults'], $defaults),
+            'config' => self::mergeRecursive($parent['config'], $config),
+        ];
+    }
+
+    private static function normalizeFileReferences(array $values, string $sourceFile): array
+    {
+        foreach ($values as $key => $value) {
+            if (is_array($value)) {
+                $values[$key] = self::normalizeFileReferences($value, $sourceFile);
+            } elseif (is_string($value) && str_starts_with($value, 'file://')) {
+                $values[$key] = self::pathToFileReference(self::resolveFileReference($value, $sourceFile));
+            }
+        }
+        return $values;
+    }
+
+    private static function resolveFileReference(string $reference, string $sourceFile): string
+    {
+        $path = self::fileReferenceToPath($reference);
+        if (str_starts_with($reference, 'file:///')) {
+            return $path;
+        }
+        return dirname($sourceFile) . '/' . $path;
+    }
+
+    private static function fileReferenceToPath(string $reference): string
+    {
+        if (!str_starts_with($reference, 'file://')) {
+            throw new InvalidArgumentException('Not a file reference: ' . $reference);
+        }
+        $path = substr($reference, 7);
+        return str_starts_with($reference, 'file:///') ? '/' . ltrim($path, '/') : $path;
+    }
+
+    private static function pathToFileReference(string $path): string
+    {
+        $realPath = realpath($path) ?: $path;
+        return 'file://' . (str_starts_with($realPath, '/') ? '/' : '') . $realPath;
+    }
+
+    private static function assertReadableFile(string $file, string $label): void
+    {
+        if (!is_file($file)) {
+            throw new RuntimeException($label . ' does not exist: ' . $file);
+        }
+        if (!is_readable($file)) {
+            throw new RuntimeException($label . ' is not readable: ' . $file);
+        }
     }
 
     private static function mergeRecursive(array $base, array $override): array
