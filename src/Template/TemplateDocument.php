@@ -10,26 +10,19 @@ use Lack\PdfDoc\Resource\FontSource;
 use Lack\PdfDoc\Resource\ImageSource;
 use Phore\Markdown\Markdown;
 use RuntimeException;
-use Throwable;
 
 final class TemplateDocument extends AbstractDocument
 {
-    private array $templateDefaults = [];
     private array $documentMetadata = [];
-    private array $metadataOverrides = [];
-    private array $config = [];
     private array $renderers = [];
 
     private function __construct(
         private readonly string $templateHtml,
         private readonly bool $safe,
-        array $templateDefaults,
-        array $config,
-        array $metadataOverrides,
+        private readonly array $templateDefaults,
+        private readonly array $config,
+        private readonly array $metadataOverrides,
     ) {
-        $this->templateDefaults = $templateDefaults;
-        $this->config = $config;
-        $this->metadataOverrides = $metadataOverrides;
         $this->configureFonts();
     }
 
@@ -51,7 +44,7 @@ final class TemplateDocument extends AbstractDocument
 
     public function fromMarkdownFile(string $file): self
     {
-        $source = self::readFrontMatter($file, 'Markdown document');
+        $source = self::readFrontMatter($file);
         $header = $source['header'];
         if ($this->safe) {
             $header = self::normalizeFileReferences($header, $file);
@@ -114,6 +107,10 @@ final class TemplateDocument extends AbstractDocument
     {
         $layout = (array) ($this->config['layout'] ?? []);
         return [
+            'pageLeft' => (string) ($layout['pageLeft'] ?? '15mm'),
+            'pageRight' => (string) ($layout['pageRight'] ?? '15mm'),
+            'pageTop' => (string) ($layout['pageTop'] ?? '15mm'),
+            'pageBottom' => (string) ($layout['pageBottom'] ?? '15mm'),
             'bodyFont' => 'font:' . (string) ($layout['bodyFont'] ?? 'body'),
             'bodyFontSize' => (string) ($layout['bodyFontSize'] ?? '11pt'),
             'bodyLineHeight' => (string) ($layout['bodyLineHeight'] ?? '1.45'),
@@ -224,7 +221,7 @@ final class TemplateDocument extends AbstractDocument
         }
         $stack[] = $realFile;
 
-        $source = self::readFrontMatter($file, 'Template');
+        $source = self::readFrontMatter($file);
         $header = $source['header'];
         $defaults = (array) ($header['defaults'] ?? []);
         $config = (array) ($header['config'] ?? []);
@@ -261,41 +258,16 @@ final class TemplateDocument extends AbstractDocument
         ];
     }
 
-    private static function readFrontMatter(string $file, string $label): array
+    private static function readFrontMatter(string $file): array
     {
-        self::assertReadableFile($file, $label);
-        $source = file_get_contents($file);
-        if ($source === false) {
-            throw new RuntimeException('Unable to read ' . strtolower($label) . ': ' . $file);
+        $phoreFile = phore_file($file);
+        $contents = $phoreFile->get_contents();
+        if (!str_starts_with($contents, "---\n") && !str_starts_with($contents, "---\r\n")) {
+            return ['header' => [], 'content' => $contents];
         }
 
-        $openingLength = str_starts_with($source, "---\r\n") ? 5 : (str_starts_with($source, "---\n") ? 4 : 0);
-        if ($openingLength === 0) {
-            return ['header' => [], 'content' => $source];
-        }
-
-        $remaining = substr($source, $openingLength);
-        if (!preg_match('/^---[ \t]*\r?$/m', $remaining, $match, PREG_OFFSET_CAPTURE)) {
-            throw new RuntimeException('Missing closing front matter delimiter in: ' . $file);
-        }
-
-        $delimiter = $match[0][0];
-        $delimiterOffset = $match[0][1];
-        $yaml = substr($remaining, 0, $delimiterOffset);
-        $contentOffset = $delimiterOffset + strlen($delimiter);
-        if (substr($remaining, $contentOffset, 2) === "\r\n") {
-            $contentOffset += 2;
-        } elseif (substr($remaining, $contentOffset, 1) === "\n") {
-            $contentOffset++;
-        }
-
-        try {
-            $header = trim($yaml) === '' ? [] : phore_yaml_decode($yaml);
-        } catch (Throwable $e) {
-            throw new RuntimeException('Invalid YAML front matter in: ' . $file . ' (' . $e->getMessage() . ')', 0, $e);
-        }
-
-        return ['header' => $header, 'content' => substr($remaining, $contentOffset)];
+        $source = $phoreFile->get_front_matter();
+        return ['header' => (array) $source->header, 'content' => (string) $source->content];
     }
 
     private static function normalizeFileReferences(array $values, string $sourceFile): array
